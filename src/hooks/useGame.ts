@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback} from 'react';
 import { type Cell, type Color, type Position } from '../game/types';
 import { generateBoard, samePos} from '../game/board';
 import { getValidMoves } from '../game/pieces';
@@ -10,19 +10,6 @@ export function useGame() {
     const [selectedPos, setSelectedPos] = useState<Position | null>(null);
     const [validMoves, setValidMoves] = useState<Position[]>([]);
     const [enPassantTarget, setEnPassantTarget] = useState<Position | null>(null);
-
-
-    // This document listener technically catches everything, but stopPropagation pokes a hole in that net
-    // specifically for hex tile clicks
-    useEffect(() => {
-        const deselect = () => {
-            setSelectedPos(null);
-            setValidMoves([]);
-        };
-        document.addEventListener('click', deselect);
-        return () => document.removeEventListener('click', deselect);
-    }, []); // runs once — stable setters don't need deps
-
 
     const handleCellClick = useCallback((q: number, r: number) => {
         const clicked: Position = { q, r };
