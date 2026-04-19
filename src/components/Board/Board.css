@@ -12,3 +12,19 @@
     width: min(95vh, 95vw);
     height: auto;
 }
+
+.file-label {
+    font-size: 20px;
+    fill: #ccc;
+    font-family: sans-serif;
+    text-anchor: middle;
+    dominant-baseline: middle;
+}
+
+.rank-label {
+    font-size: 20px;
+    fill: #ccc;
+    font-family: sans-serif;
+    text-anchor: end;
+    dominant-baseline: middle;
+}

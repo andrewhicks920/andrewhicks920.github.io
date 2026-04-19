@@ -62,12 +62,6 @@ export function fileLabel(q: number): string {
     return ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'k', 'l'][q + 5];
 }
 
-// Rank formula derived from Glinski's notation: rank = q + r + 6.
-// File f (q=0) has ranks 1–11; file a (q=-5) has ranks 1–6; file l (q=5) has ranks 6–11.
-export function rankLabel(q: number, r: number): number {
-    return q + r + 6;
-}
-
 export function posKey(pos: Position): string {
     return `${pos.q},${pos.r}`;
 }

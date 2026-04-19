@@ -4,37 +4,44 @@ import { PieceSymbol } from './Piece.tsx';
 import './Tile.css';
 
 const CELL_FILL: Record<CellColor, string> = {
-    light: '#f0d9b5',
-    mid: '#b58863',
-    dark: '#8b4513',
+    light: '#F0D9B5',
+    mid:   '#B58863',
+    dark:  '#8B4513',
 };
 
-interface HexTileProps {
+interface HexTileFillProps {
     cell: Cell;
     x: number;
     y: number;
     size: number;
     isSelected: boolean;
     isHighlight: boolean;
+    isClickable: boolean;
     onClick: () => void;
 }
 
-export function HexTile({ cell, x, y, size, isSelected, isHighlight, onClick }: HexTileProps) {
+
+export function HexTileFill({ cell, x, y, size, isSelected, isHighlight, isClickable, onClick }: HexTileFillProps) {
+    const points = hexPoints(x, y, size);
+
     return (
-        <g className="hex-tile" onClick={onClick}>
+        <g
+            className={`hex-tile ${isClickable ? 'clickable' : 'no-pointer-events'}`}
+            onClick={onClick}
+        >
             <polygon
-                points={hexPoints(x, y, size * 0.96)}
+                points={points}
                 fill={CELL_FILL[cell.cellColor]}
-                stroke="#111"
-                strokeWidth={2}
             />
+
             {(isSelected || isHighlight) && (
                 <polygon
-                    points={hexPoints(x, y, size * 0.96)}
+                    points={points}
                     fill={isSelected ? 'rgba(255, 255, 0, 0.45)' : 'rgba(0, 200, 0, 0.45)'}
                     style={{ pointerEvents: 'none' }}
                 />
             )}
+
             {cell.piece && (
                 <PieceSymbol
                     piece={cell.piece}
