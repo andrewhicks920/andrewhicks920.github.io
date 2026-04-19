@@ -5,7 +5,9 @@ Built with React, TypeScript, and SVG rendering.
 
 ## About
 
-Glinski's hexagonal chess is a two-player chess variant invented by Władysław Gliński in 1936. The game is played on a hexagonal board with 91 cells arranged in an 11-file, three-color layout. All standard chess pieces are present, with movement rules adapted to the hexagonal geometry.
+Glinski's hexagonal chess is a two-player chess variant invented by Władysław Gliński in 1936. The game is played on a 
+hexagonal board with 91 cells arranged in an 11-file, three-color layout. All standard chess pieces are present, with 
+movement rules adapted to the hexagonal geometry.
 
 ## Features
 
@@ -46,7 +48,6 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 - **React 19** — Component-based UI
 - **TypeScript 6** — Static typing
 - **Vite 8** — Build tool and dev server
-- **SVG** — Board and piece rendering
 
 ## Project Structure
 
