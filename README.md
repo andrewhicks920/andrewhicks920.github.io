@@ -1,73 +1,76 @@
-# React + TypeScript + Vite
+# Hexagonal Chess
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A fully playable implementation of [**Glinski's hexagonal chess**](https://en.wikipedia.org/wiki/Hexagonal_chess#Gli%C5%84ski). 
+Built with React, TypeScript, and SVG rendering.
 
-Currently, two official plugins are available:
+## About
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Glinski's hexagonal chess is a two-player chess variant invented by Władysław Gliński in 1936. The game is played on a hexagonal board with 91 cells arranged in an 11-file, three-color layout. All standard chess pieces are present, with movement rules adapted to the hexagonal geometry.
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Full implementation of Glinski's rules including:
+  - All six piece types with hex-adapted movement
+  - Check, checkmate, and stalemate detection
+  - En passant captures
+  - Pawn promotion with piece-selection dialog
+  - Stalemate scoring (¾ point to the delivering player per Glinski's rules)
+- SVG-rendered board with 14 built-in color themes
+- Visual move highlighting — legal moves shown on piece selection
+- Game status bar — turn indicator, check warnings, and game-over messages
+- Captured pieces display
+- Reset button to start a new game
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+**Prerequisites:** Node.js and npm
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Scripts
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+| Command           | Description                                     |
+|-------------------|-------------------------------------------------|
+| `npm run dev`     | Start the development server with hot reloading |
+| `npm run build`   | Build for production (output to `/dist`)        |
+| `npm run preview` | Preview the production build locally            |
+| `npm run lint`    | Run ESLint                                      |
+
+## Tech Stack
+
+- **React 19** — Component-based UI
+- **TypeScript 6** — Static typing
+- **Vite 8** — Build tool and dev server
+- **SVG** — Board and piece rendering
+
+## Project Structure
+
 ```
+src/
+├── game/
+│   ├── types.ts        # Core types (Piece, Color, Position, Cell)
+│   ├── board.ts        # Hex coordinate math and board generation
+│   ├── pieces.ts       # Movement logic for each piece type
+│   └── gameLogic.ts    # Check, checkmate, stalemate detection
+├── components/
+│   ├── Board/          # Main SVG board renderer
+│   ├── Tile/           # Individual hex tile and piece rendering
+│   ├── GameStatus/     # Status bar component
+│   └── CapturedPieces/ # Captured pieces display
+├── hooks/
+│   └── useGame.ts      # All game state management
+├── themes.ts           # Color theme definitions
+└── App.tsx             # Root component
+```
+
+## Implementation Notes
+
+The board uses **axial coordinates** `(q, r)` where cells satisfy `max(|q|, |r|, |q+r|) ≤ 5`, producing exactly 91 valid cells. 
+Cell colors are assigned using `(q - r) mod 3`, guaranteeing bishops always remain on the same color.
+
+Move generation produces pseudo-legal moves that are then filtered to remove any that leave the king in check.
