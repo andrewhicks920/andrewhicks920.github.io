@@ -1,8 +1,8 @@
 import { toPixel, fileLabel, isValidCell } from '../../game/board.ts';
 import { useGame } from '../../hooks/useGame.ts';
 import { HexTileFill } from '../Tile/Tile.tsx';
-import { GameStatus } from '../GameStatus.tsx';
-import { CapturedPieces } from '../CapturedPieces.tsx';
+import { GameStatus } from '../GameStatus/GameStatus.tsx';
+import { CapturedPieces } from '../CapturedPieces/CapturedPieces.tsx';
 import type { Color, PieceType } from '../../game/types.ts';
 import './Board.css';
 

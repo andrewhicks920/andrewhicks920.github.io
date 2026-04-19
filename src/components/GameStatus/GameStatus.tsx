@@ -1,4 +1,4 @@
-import type { Color } from '../game/types';
+import type { Color } from '../../game/types.ts';
 import './GameStatus.css';
 
 interface Props {

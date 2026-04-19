@@ -18,7 +18,7 @@
 
 export type Color = 'white' | 'black';
 export type PieceType = 'king' | 'queen' | 'rook' | 'bishop' | 'knight' | 'pawn';
-export type CellColor = 'light' | 'mid' | 'dark'; // Visual color of a hex cell — 3 colors so bishops stay on 1 color
+export type CellColor = 'light' | 'mid' | 'dark';
 
 export interface Piece {
   type: PieceType;
@@ -35,17 +35,4 @@ export interface Cell {
   r: number;
   cellColor: CellColor; // visual color of the hex tile
   piece: Piece | null;  // which piece sits here, or null if empty
-}
-
-export interface GameState {
-
-  cells: Cell[];
-  currentTurn: Color;
-  selectedPos: Position | null;    // which cell the current player clicked
-  validMoves: Position[];          // highlighted destinations for selected piece
-  enPassantTarget: Position | null;
-  gameStatus: 'playing' | 'check' | 'checkmate' | 'stalemate';
-  capturedByWhite: Piece[];
-  capturedByBlack: Piece[];
-  promotionPending: Position | null; // pawn waiting for promotion choice
 }

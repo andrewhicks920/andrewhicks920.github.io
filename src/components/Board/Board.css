@@ -8,7 +8,7 @@
     position: relative;
 }
 
-/* ── Board + captured pieces row ───────────────────────────── */
+/* Board + captured pieces row */
 .board-row {
     display: flex;
     flex-direction: row;
@@ -42,7 +42,7 @@
     dominant-baseline: middle;
 }
 
-/* ── Promotion dialog ──────────────────────────────────────── */
+/* Promotion dialog */
 .promotion-overlay {
     position: absolute;
     inset: 0;

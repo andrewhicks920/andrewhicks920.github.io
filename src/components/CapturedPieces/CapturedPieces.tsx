@@ -1,4 +1,4 @@
-import type { Piece } from '../game/types';
+import type { Piece } from '../../game/types.ts';
 import './CapturedPieces.css';
 
 const PIECE_UNICODE: Record<string, { white: string; black: string }> = {
