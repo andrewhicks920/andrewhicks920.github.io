@@ -1,0 +1,7 @@
+.hex-tile {
+    cursor: pointer;
+}
+
+.hex-tile.no-pointer-events {
+    pointer-events: none;
+}

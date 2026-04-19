@@ -1,0 +1,56 @@
+.game-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    width: 100%;
+    max-width: 600px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    font-family: sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.game-status--turn {
+    color: #f0d9b5;
+}
+
+.game-status--check {
+    background: rgba(200, 40, 40, 0.75);
+    color: #fff;
+    border-color: rgba(255, 100, 100, 0.4);
+}
+
+.game-status--gameover {
+    background: rgba(20, 20, 20, 0.9);
+    color: #f0d9b5;
+    font-size: 1.1rem;
+    border-color: #f0d9b5;
+}
+
+.game-status__message {
+    flex: 1;
+}
+
+.game-status__new-game {
+    background: rgba(240, 217, 181, 0.15);
+    color: #f0d9b5;
+    border: 1px solid rgba(240, 217, 181, 0.4);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-family: sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.game-status__new-game:hover {
+    background: rgba(240, 217, 181, 0.3);
+    border-color: #f0d9b5;
+}

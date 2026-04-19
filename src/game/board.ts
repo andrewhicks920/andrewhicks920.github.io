@@ -1,5 +1,32 @@
 import {type Cell, type CellColor, type Color, type Piece, type PieceType, type Position} from './types';
 
+export function applyMove(
+    cells: Cell[],
+    from: Position,
+    to: Position,
+    enPassantTarget: Position | null,
+    movingColor: Color,
+): Cell[] {
+    const epCapturedR = enPassantTarget
+        ? enPassantTarget.r + (movingColor === 'white' ? -1 : 1)
+        : null;
+
+    const isEpCapture = (cell: Cell) =>
+        enPassantTarget !== null &&
+        samePos(to, enPassantTarget) &&
+        cell.q === enPassantTarget.q &&
+        cell.r === epCapturedR;
+
+    const piece = cells.find(c => samePos(c, from))!.piece;
+
+    return cells.map(cell => {
+        if (samePos(cell, from)) return { ...cell, piece: null };
+        if (samePos(cell, to))   return { ...cell, piece };
+        if (isEpCapture(cell))   return { ...cell, piece: null };
+        return cell;
+    });
+}
+
 // A cell (q, r) is on Glinski's 91-cell board when all three cube coords stay within ±5.
 // Cube coords: x=q, z=r, y=-q-r. Constraint: max(|q|, |r|, |q+r|) <= 5.
 export function isValidCell(q: number, r: number): boolean {
@@ -60,12 +87,6 @@ export function hexPoints(cx: number, cy: number, size: number): string {
 // q: -5 (file a) to +5 (file l), skipping j.
 export function fileLabel(q: number): string {
     return ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'k', 'l'][q + 5];
-}
-
-// Rank formula derived from Glinski's notation: rank = q + r + 6.
-// File f (q=0) has ranks 1–11; file a (q=-5) has ranks 1–6; file l (q=5) has ranks 6–11.
-export function rankLabel(q: number, r: number): number {
-    return q + r + 6;
 }
 
 export function posKey(pos: Position): string {
