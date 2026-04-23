@@ -13,13 +13,76 @@ const PROMO_LETTERS: Record<PieceType, string> = {
     queen: 'Q', rook: 'R', bishop: 'B', knight: 'N', king: '', pawn: '',
 };
 
-function buildNotation(piece: Piece, to: Position, captured: boolean, status: string): string {
-    const letter = PIECE_LETTERS[piece.type];
-    const file = FILES[to.q + 5] ?? '?';
-    const rank = to.q + to.r + 6;
+function fileOf(pos: Position): string { return FILES[pos.q + 5] ?? '?'; }
+function rankOf(pos: Position): number { return pos.q + pos.r + 6; }
+
+/**
+ * Builds SAN-style notation with proper disambiguation.
+ *
+ * Disambiguation rules (applied when multiple same-type pieces can reach `to`):
+ *   1. Use source file if it uniquely identifies the piece.
+ *   2. Else use source rank.
+ *   3. Else use full source coordinate.
+ *
+ * Pawn captures always include the source file (standard SAN).
+ */
+function buildNotation(
+    piece: Piece,
+    from: Position,
+    to: Position,
+    captured: boolean,
+    status: string,
+    boardCells: Cell[],
+    enPassantTarget: Position | null,
+): string {
+    const toFile = fileOf(to);
+    const toRank = rankOf(to);
+    const fromFile = fileOf(from);
+    const fromRank = rankOf(from);
     const capSym = captured ? 'x' : '';
     const checkSym = status === 'checkmate' ? '#' : status === 'check' ? '+' : '';
-    return `${letter}${capSym}${file}${rank}${checkSym}`;
+
+    // Pawns: capture includes source file, moves omit piece letter
+    if (piece.type === 'pawn') {
+        if (captured) return `${fromFile}x${toFile}${toRank}${checkSym}`;
+        return `${toFile}${toRank}${checkSym}`;
+    }
+
+    // Find all other same-type/color pieces that can also legally reach `to`
+    const ambiguousOrigins: Position[] = boardCells
+        .filter(c =>
+            c.piece?.type === piece.type &&
+            c.piece?.color === piece.color &&
+            !(c.q === from.q && c.r === from.r),
+        )
+        .filter(c => getLegalMoves(boardCells, { q: c.q, r: c.r }, enPassantTarget)
+            .some(m => m.q === to.q && m.r === to.r),
+        )
+        .map(c => ({ q: c.q, r: c.r }));
+
+    let disambiguation = '';
+
+    if (ambiguousOrigins.length > 0) {
+        // All origins that can reach `to`, including the moving piece
+        const allOrigins: Position[] = [from, ...ambiguousOrigins];
+
+        // Step 1: is the source file unique among all origins?
+        const sameFileCount = allOrigins.filter(p => p.q === from.q).length;
+        if (sameFileCount === 1) {
+            disambiguation = fromFile;
+        } else {
+            // Step 2: is the source rank unique?
+            const sameRankCount = allOrigins.filter(p => rankOf(p) === fromRank).length;
+            if (sameRankCount === 1) {
+                disambiguation = String(fromRank);
+            } else {
+                // Step 3: full coordinate
+                disambiguation = `${fromFile}${fromRank}`;
+            }
+        }
+    }
+
+    return `${PIECE_LETTERS[piece.type]}${disambiguation}${capSym}${toFile}${toRank}${checkSym}`;
 }
 
 function addToHistory(prev: MoveRecord[], color: Color, notation: string): MoveRecord[] {
@@ -83,6 +146,9 @@ export function useGame() {
                     setCapturedByBlack(prev => [...prev, captured]);
             }
 
+            // Snapshot the board BEFORE the move for disambiguation
+            const preMoveBoard = cells;
+
             const newCells = applyMove(cells, selectedPos, clicked, enPassantTarget, movingPiece.color);
             const nextTurn: Color = currentTurn === 'white' ? 'black' : 'white';
             const isPromotion =
@@ -95,13 +161,19 @@ export function useGame() {
             setValidMoves([]);
 
             if (isPromotion) {
-                const baseNotation = buildNotation(movingPiece, clicked, !!captured, '');
+                const baseNotation = buildNotation(
+                    movingPiece, selectedPos, clicked, !!captured, '',
+                    preMoveBoard, enPassantTarget,
+                );
                 setPromotionBaseNotation(baseNotation);
                 setMoveHistory(prev => addToHistory(prev, movingPiece.color, baseNotation + '=?'));
                 setPromotionPending(clicked);
             } else {
                 const nextStatus = getGameStatus(newCells, nextTurn, newEnPassantTarget);
-                const notation = buildNotation(movingPiece, clicked, !!captured, nextStatus);
+                const notation = buildNotation(
+                    movingPiece, selectedPos, clicked, !!captured, nextStatus,
+                    preMoveBoard, enPassantTarget,
+                );
                 setMoveHistory(prev => addToHistory(prev, movingPiece.color, notation));
                 setCurrentTurn(nextTurn);
                 setGameStatus(nextStatus);
@@ -146,8 +218,7 @@ export function useGame() {
         const nextTurn: Color = currentTurn === 'white' ? 'black' : 'white';
         const nextStatus = getGameStatus(newCells, nextTurn, enPassantTarget);
         const checkSym = nextStatus === 'checkmate' ? '#' : nextStatus === 'check' ? '+' : '';
-        const promoLetter = PROMO_LETTERS[pieceType];
-        const fullNotation = (promotionBaseNotation ?? '') + `=${promoLetter}${checkSym}`;
+        const fullNotation = (promotionBaseNotation ?? '') + `=${PROMO_LETTERS[pieceType]}${checkSym}`;
 
         setMoveHistory(prev => {
             const last = prev[prev.length - 1];
