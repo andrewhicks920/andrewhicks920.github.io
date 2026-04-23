@@ -1,13 +1,8 @@
-import type { Cell, CellColor } from '../../game/types.ts';
+import type { Cell } from '../../game/types.ts';
 import { hexPoints } from '../../game/board.ts';
 import { PieceSymbol } from './Piece.tsx';
 import './Tile.css';
 
-const CELL_FILL: Record<CellColor, string> = {
-    light: '#F0D9B5',
-    mid:   '#B58863',
-    dark:  '#8B4513',
-};
 
 interface HexTileFillProps {
     cell: Cell;
@@ -19,10 +14,11 @@ interface HexTileFillProps {
     isCheck: boolean;
     isClickable: boolean;
     onClick: () => void;
+    pieceSet: string;
 }
 
 
-export function HexTileFill({ cell, x, y, size, isSelected, isHighlight, isCheck, isClickable, onClick }: HexTileFillProps) {
+export function HexTileFill({ cell, x, y, size, isSelected, isHighlight, isCheck, isClickable, onClick, pieceSet }: HexTileFillProps) {
     const points = hexPoints(x, y, size);
 
     return (
@@ -32,7 +28,7 @@ export function HexTileFill({ cell, x, y, size, isSelected, isHighlight, isCheck
         >
             <polygon
                 points={points}
-                fill={CELL_FILL[cell.cellColor]}
+                style={{fill: `var(--tile-${cell.cellColor})`}}
             />
 
             {isCheck && (
@@ -57,6 +53,7 @@ export function HexTileFill({ cell, x, y, size, isSelected, isHighlight, isCheck
                     cx={x}
                     cy={y}
                     size={size * 0.6}
+                    pieceSet={pieceSet}
                 />
             )}
         </g>

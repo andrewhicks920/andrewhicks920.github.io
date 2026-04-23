@@ -1,0 +1,118 @@
+.settings-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.settings-panel {
+    background: #1e1e1e;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    padding: 24px;
+    width: min(520px, 90vw);
+    max-height: 80vh;
+    overflow-y: auto;
+    color: #f0d9b5;
+    font-family: sans-serif;
+}
+
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.settings-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.settings-close {
+    background: none;
+    border: none;
+    color: #f0d9b5;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 4px 8px;
+}
+
+section {
+    margin-bottom: 24px;
+}
+
+section h3 {
+    margin: 0 0 12px;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.7;
+}
+
+/* Board theme swatches */
+.theme-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.theme-swatch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    padding: 6px;
+    cursor: pointer;
+    color: #f0d9b5;
+}
+
+.theme-swatch span:not(.theme-label) {
+    display: block;
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+}
+
+.theme-label {
+    font-size: 0.7rem;
+    opacity: 0.8;
+}
+
+.theme-swatch.selected,
+.theme-swatch:hover {
+    border-color: #f0d9b5;
+}
+
+/* Piece set swatches */
+.piece-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.piece-swatch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid transparent;
+    border-radius: 6px;
+    padding: 8px;
+    cursor: pointer;
+    color: #f0d9b5;
+    font-size: 0.7rem;
+    width: 80px;
+}
+
+.piece-swatch.selected,
+.piece-swatch:hover {
+    border-color: #f0d9b5;
+}

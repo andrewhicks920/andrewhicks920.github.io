@@ -26,9 +26,13 @@ const PROMOTION_PIECES: PieceType[] = ['queen', 'rook', 'bishop', 'knight'];
  */
 function buildGridPath(size: number): string {
     const segments: string[] = [];
+
     for (let q = -5; q <= 5; q++) {
         for (let r = -5; r <= 5; r++) {
-            if (!isValidCell(q, r)) continue;
+
+            if (!isValidCell(q, r))
+                continue;
+
             const {x, y} = toPixel(q, r, size);
             const vertices = hexVertices(x, y, size);
 
@@ -36,7 +40,7 @@ function buildGridPath(size: number): string {
                 const [x1, y1] = vertices[i];
                 const [x2, y2] = vertices[(i + 1) % 6];
 
-                segments.push(`M${x1.toFixed(2)},${y1.toFixed(2)}L${x2.toFixed(2)},${y2.toFixed(2)}`);
+                segments.push(`M${x1},${y1}L${x2},${y2}`);
             }
         }
     }
@@ -59,7 +63,6 @@ const RANK_LABELS = Array.from({length: 11}, (_, i) => {
     const sum = rank - 6;
     const q = Math.max(-5, sum - 5);
     const r = sum - q;
-    const {x, y} = toPixel(q, r, CELL_SIZE);
 
     /*
     To help with understanding the idea of ranks in hexagonal chess, the numbers will be positioned a bit differently
@@ -70,8 +73,9 @@ const RANK_LABELS = Array.from({length: 11}, (_, i) => {
                                                            \        /
                                                             \______/
 
-    The idea is that this will help make it easier to visualize the "V-nature" of a rank in hexagonal chess
+    The idea is that this will help make it easier to visualize the "V-nature" of a rank
      */
+    const {x, y} = toPixel(q, r, CELL_SIZE);
     if (rank >= 6) {
         const topRightHexCornerPos = hexVertices(x, y, CELL_SIZE)[4];
         return {label: rank, x: topRightHexCornerPos[0] - 10, y: topRightHexCornerPos[1] - 10};
@@ -83,12 +87,17 @@ const RANK_LABELS = Array.from({length: 11}, (_, i) => {
     }
 });
 
-function pieceImageSrc(color: Color, type: PieceType): string {
+function pieceImageSrc(color: Color, type: PieceType, pieceSet: string): string {
     const c = color === 'white' ? 'w' : 'b';
-    return new URL(`../../assets/pieces/neo/${c}${PIECE_MAP[type]}.png`, import.meta.url).href;
+    return new URL(`../../assets/pieces/${pieceSet}/${c}${PIECE_MAP[type]}.png`, import.meta.url).href;
 }
 
-export function Board() {
+interface BoardProps {
+    pieceSet: string;
+    onSettingsOpen: () => void;
+}
+
+export function Board({ pieceSet, onSettingsOpen }: BoardProps) {
     const {
         cells,
         currentTurn,
@@ -118,6 +127,7 @@ export function Board() {
                 gameStatus={gameStatus}
                 currentTurn={currentTurn}
                 onNewGame={resetGame}
+                onSettings={onSettingsOpen}
             />
 
             <div className="board-row">
@@ -151,6 +161,7 @@ export function Board() {
                                 isHighlight={isHighlight}
                                 isCheck={isCheck}
                                 isClickable={isClickable}
+                                pieceSet={pieceSet}
                                 onClick={() => handleCellClick(cell.q, cell.r)}
                             />
                         );
@@ -195,7 +206,7 @@ export function Board() {
                                     title={type}
                                 >
                                     <img
-                                        src={pieceImageSrc(currentTurn, type)}
+                                        src={pieceImageSrc(currentTurn, type, pieceSet)}
                                         alt={type}
                                         width={72}
                                         height={72}

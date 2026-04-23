@@ -37,6 +37,7 @@
 }
 
 .game-status__new-game {
+
     background: rgba(240, 217, 181, 0.15);
     color: #f0d9b5;
     border: 1px solid rgba(240, 217, 181, 0.4);
@@ -53,4 +54,13 @@
 .game-status__new-game:hover {
     background: rgba(240, 217, 181, 0.3);
     border-color: #f0d9b5;
+}
+
+.settings-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: inherit;
+    font-size: 1.1rem;
+    padding: 6px;
 }

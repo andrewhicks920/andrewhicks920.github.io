@@ -5,9 +5,11 @@ interface Props {
     gameStatus: 'playing' | 'check' | 'checkmate' | 'stalemate';
     currentTurn: Color;
     onNewGame: () => void;
+    onSettings: () => void;
 }
 
-export function GameStatus({ gameStatus, currentTurn, onNewGame }: Props) {
+
+export function GameStatus({ gameStatus, currentTurn, onNewGame, onSettings }: Props) {
     const turnLabel = currentTurn === 'white' ? 'White' : 'Black';
 
     let message: string;
@@ -17,14 +19,17 @@ export function GameStatus({ gameStatus, currentTurn, onNewGame }: Props) {
         const winner = currentTurn === 'white' ? 'Black' : 'White';
         message = `Checkmate — ${winner} wins!`;
         variant = 'gameover';
-    } else if (gameStatus === 'stalemate') {
+    }
+    else if (gameStatus === 'stalemate') {
         const deliverer = currentTurn === 'white' ? 'Black' : 'White';
         message = `Stalemate — ${deliverer} gets ¾ point (Glinski's rules).`;
         variant = 'gameover';
-    } else if (gameStatus === 'check') {
+    }
+    else if (gameStatus === 'check') {
         message = `${turnLabel}'s turn — Check!`;
         variant = 'check';
-    } else {
+    }
+    else {
         message = `${turnLabel}'s turn`;
         variant = 'turn';
     }
@@ -34,6 +39,10 @@ export function GameStatus({ gameStatus, currentTurn, onNewGame }: Props) {
             <span className="game-status__message">{message}</span>
             <button className="game-status__new-game" onClick={onNewGame}>
                 New Game
+            </button>
+
+            <button className="settings-button" onClick={onSettings}>
+                ⚙️
             </button>
         </div>
     );

@@ -5,7 +5,7 @@ interface PieceProps {
     cx: number;
     cy: number;
     size: number;
-    style?: string;
+    pieceSet: string;
 }
 
 const PIECE_MAP: Record<string, string> = {
@@ -15,11 +15,11 @@ const PIECE_MAP: Record<string, string> = {
 
 
 // Generate filename (e.g., 'w' + 'k' = 'wk')
-export function PieceSymbol({ piece, cx, cy, size, style = 'neo'}: PieceProps) {
+export function PieceSymbol({ piece, cx, cy, size, pieceSet }: PieceProps) {
     const color = piece.color === 'white' ? 'w' : 'b';
-    const pieceType = PIECE_MAP[piece.type]; // k, q, r,...
+    const pieceType = PIECE_MAP[piece.type];
 
-    const src = new URL(`../../assets/pieces/${style}/${color}${pieceType}.png`,import.meta.url).href;
+    const src = new URL(`../../assets/pieces/${pieceSet}/${color}${pieceType}.png`, import.meta.url).href;
 
     return (
         <image
