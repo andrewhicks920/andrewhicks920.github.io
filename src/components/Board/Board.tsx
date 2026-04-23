@@ -1,4 +1,4 @@
-import { toPixel, fileLabel, isValidCell } from '../../game/board.ts';
+import { toPixel, isValidCell, hexVertices } from '../../game/board.ts';
 import { useGame } from '../../hooks/useGame.ts';
 import { HexTileFill } from '../Tile/Tile.tsx';
 import { GameStatus } from '../GameStatus/GameStatus.tsx';
@@ -15,30 +15,27 @@ const LABEL_PAD = 50;
 const PIECE_MAP: Record<string, string> = {
     queen: 'q', rook: 'r', bishop: 'b', knight: 'n',
 };
+
 const PROMOTION_PIECES: PieceType[] = ['queen', 'rook', 'bishop', 'knight'];
 
-// Pre-compute all hex edges as a single SVG path drawn once on top of all fills.
+/**
+ * Pre-computes all hex edges as a single SVG path string, drawn once over all tile fills.
+ *
+ * @param size - Hex radius, should match the CELL_SIZE used for tile rendering
+ * @returns SVG path `d` attribute string of M/L segments tracing every hex edge
+ */
 function buildGridPath(size: number): string {
-    const h = (size * Math.sqrt(3)) / 2;
     const segments: string[] = [];
-
     for (let q = -5; q <= 5; q++) {
         for (let r = -5; r <= 5; r++) {
             if (!isValidCell(q, r)) continue;
-
-            const { x, y } = toPixel(q, r, size);
-            const verts: [number, number][] = [
-                [x + size,       y    ],
-                [x + size / 2,   y + h],
-                [x - size / 2,   y + h],
-                [x - size,       y    ],
-                [x - size / 2,   y - h],
-                [x + size / 2,   y - h],
-            ];
+            const {x, y} = toPixel(q, r, size);
+            const vertices = hexVertices(x, y, size);
 
             for (let i = 0; i < 6; i++) {
-                const [x1, y1] = verts[i];
-                const [x2, y2] = verts[(i + 1) % 6];
+                const [x1, y1] = vertices[i];
+                const [x2, y2] = vertices[(i + 1) % 6];
+
                 segments.push(`M${x1.toFixed(2)},${y1.toFixed(2)}L${x2.toFixed(2)},${y2.toFixed(2)}`);
             }
         }
@@ -48,24 +45,42 @@ function buildGridPath(size: number): string {
 
 const GRID_PATH = buildGridPath(CELL_SIZE);
 
-const FILE_LABELS = Array.from({ length: 11 }, (_, i) => {
+
+const FILE_LABELS = Array.from(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'k', 'l'], (label, i) => {
     const q = i - 5;
     const rMin = Math.max(-5, -5 - q);
-    const { x, y } = toPixel(q, rMin, CELL_SIZE);
-    return { label: fileLabel(q), x, y: y + HEX_H + 25 };
+    const {x, y} = toPixel(q, rMin, CELL_SIZE);
+
+    return {label, x: x, y: y + HEX_H + 25};
 });
 
-const RANK_LABELS = Array.from({ length: 11 }, (_, i) => {
+const RANK_LABELS = Array.from({length: 11}, (_, i) => {
     const rank = i + 1;
     const sum = rank - 6;
     const q = Math.max(-5, sum - 5);
     const r = sum - q;
-    const { x, y } = toPixel(q, r, CELL_SIZE);
+    const {x, y} = toPixel(q, r, CELL_SIZE);
 
-    if (rank >= 6)
-        return { label: rank, x: x - CELL_SIZE / 2 - 12, y: y - HEX_H };
-    else
-        return { label: rank, x: x - CELL_SIZE - 12, y };
+    /*
+    To help with understanding the idea of ranks in hexagonal chess, the numbers will be positioned a bit differently
+
+    Ranks 6-11 will be positioned at this corner, here -->   ______
+                                                            /      \
+    Ranks 1-5 will be positioned at this corner, here -->  /        \
+                                                           \        /
+                                                            \______/
+
+    The idea is that this will help make it easier to visualize the "V-nature" of a rank in hexagonal chess
+     */
+    if (rank >= 6) {
+        const topRightHexCornerPos = hexVertices(x, y, CELL_SIZE)[4];
+        return {label: rank, x: topRightHexCornerPos[0] - 10, y: topRightHexCornerPos[1] - 10};
+    }
+
+    else {
+        const bottomLeftHexCornerPos = hexVertices(x, y, CELL_SIZE)[3];
+        return {label: rank, x: bottomLeftHexCornerPos[0] - 10, y: bottomLeftHexCornerPos[1]};
+    }
 });
 
 function pieceImageSrc(color: Color, type: PieceType): string {
