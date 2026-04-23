@@ -12,27 +12,22 @@ const PIECE_UNICODE: Record<string, { white: string; black: string }> = {
 
 interface Props {
     pieces: Piece[];
-    label: string;
 }
 
-export function CapturedPieces({ pieces, label }: Props) {
+export function CapturedPieces({ pieces }: Props) {
+    if (pieces.length === 0) return null;
+
     return (
-        <div className="captured-panel">
-            <span className="captured-label">{label}</span>
-            <div className="captured-pieces">
-                {pieces.map((piece, i) => (
-                    <span
-                        key={i}
-                        className={`captured-piece captured-piece--${piece.color}`}
-                        title={`${piece.color} ${piece.type}`}
-                    >
-                        {PIECE_UNICODE[piece.type][piece.color]}
-                    </span>
-                ))}
-                {pieces.length === 0 && (
-                    <span className="captured-empty">—</span>
-                )}
-            </div>
+        <div className="captured-pieces">
+            {pieces.map((piece, i) => (
+                <span
+                    key={i}
+                    className={`captured-piece captured-piece--${piece.color}`}
+                    title={`${piece.color} ${piece.type}`}
+                >
+                    {PIECE_UNICODE[piece.type][piece.color]}
+                </span>
+            ))}
         </div>
     );
 }

@@ -1,7 +1,40 @@
 import { useState, useCallback } from 'react';
-import { type Cell, type Color, type Piece, type PieceType, type Position } from '../game/types';
+import { type Cell, type Color, type Piece, type PieceType, type Position, type MoveRecord } from '../game/types';
 import { generateBoard, samePos, applyMove } from '../game/board';
 import { getLegalMoves, getGameStatus, isPromotionSquare } from '../game/gameLogic';
+
+const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'k', 'l'];
+
+const PIECE_LETTERS: Record<PieceType, string> = {
+    king: 'K', queen: 'Q', rook: 'R', bishop: 'B', knight: 'N', pawn: '',
+};
+
+const PROMO_LETTERS: Record<PieceType, string> = {
+    queen: 'Q', rook: 'R', bishop: 'B', knight: 'N', king: '', pawn: '',
+};
+
+function buildNotation(piece: Piece, to: Position, captured: boolean, status: string): string {
+    const letter = PIECE_LETTERS[piece.type];
+    const file = FILES[to.q + 5] ?? '?';
+    const rank = to.q + to.r + 6;
+    const capSym = captured ? 'x' : '';
+    const checkSym = status === 'checkmate' ? '#' : status === 'check' ? '+' : '';
+    return `${letter}${capSym}${file}${rank}${checkSym}`;
+}
+
+function addToHistory(prev: MoveRecord[], color: Color, notation: string): MoveRecord[] {
+    if (color === 'white') {
+        return [...prev, { moveNumber: prev.length + 1, white: notation }];
+    }
+    if (prev.length === 0) {
+        return [{ moveNumber: 1, black: notation }];
+    }
+    const last = prev[prev.length - 1];
+    if (last.white !== undefined && last.black === undefined) {
+        return [...prev.slice(0, -1), { ...last, black: notation }];
+    }
+    return [...prev, { moveNumber: prev.length + 1, black: notation }];
+}
 
 export function useGame() {
     const [cells, setCells] = useState<Cell[]>(() => generateBoard());
@@ -13,6 +46,8 @@ export function useGame() {
     const [capturedByWhite, setCapturedByWhite] = useState<Piece[]>([]);
     const [capturedByBlack, setCapturedByBlack] = useState<Piece[]>([]);
     const [promotionPending, setPromotionPending] = useState<Position | null>(null);
+    const [moveHistory, setMoveHistory] = useState<MoveRecord[]>([]);
+    const [promotionBaseNotation, setPromotionBaseNotation] = useState<string | null>(null);
 
     const handleCellClick = useCallback((q: number, r: number) => {
         if (promotionPending) return;
@@ -25,14 +60,12 @@ export function useGame() {
         if (selectedPos && validMoves.some(m => samePos(m, clicked))) {
             const movingPiece = cells.find(c => samePos(c, selectedPos))!.piece!;
 
-            // New en passant target if pawn advances two squares
             const isPawnDouble =
                 movingPiece.type === 'pawn' && Math.abs(clicked.r - selectedPos.r) === 2;
             const newEnPassantTarget: Position | null = isPawnDouble
                 ? { q: clicked.q, r: (selectedPos.r + clicked.r) / 2 }
                 : null;
 
-            // Track the captured piece (normal capture or en passant)
             const normalCapture = cells.find(c => samePos(c, clicked))?.piece ?? null;
             const epCapR = enPassantTarget
                 ? enPassantTarget.r + (movingPiece.color === 'white' ? -1 : 1)
@@ -62,11 +95,16 @@ export function useGame() {
             setValidMoves([]);
 
             if (isPromotion) {
+                const baseNotation = buildNotation(movingPiece, clicked, !!captured, '');
+                setPromotionBaseNotation(baseNotation);
+                setMoveHistory(prev => addToHistory(prev, movingPiece.color, baseNotation + '=?'));
                 setPromotionPending(clicked);
-                // Turn switches only after the player picks a piece
             } else {
+                const nextStatus = getGameStatus(newCells, nextTurn, newEnPassantTarget);
+                const notation = buildNotation(movingPiece, clicked, !!captured, nextStatus);
+                setMoveHistory(prev => addToHistory(prev, movingPiece.color, notation));
                 setCurrentTurn(nextTurn);
-                setGameStatus(getGameStatus(newCells, nextTurn, newEnPassantTarget));
+                setGameStatus(nextStatus);
             }
             return;
         }
@@ -93,6 +131,8 @@ export function useGame() {
         setCapturedByWhite([]);
         setCapturedByBlack([]);
         setPromotionPending(null);
+        setMoveHistory([]);
+        setPromotionBaseNotation(null);
     }, []);
 
     const confirmPromotion = useCallback((pieceType: PieceType) => {
@@ -104,11 +144,27 @@ export function useGame() {
                 : cell,
         );
         const nextTurn: Color = currentTurn === 'white' ? 'black' : 'white';
+        const nextStatus = getGameStatus(newCells, nextTurn, enPassantTarget);
+        const checkSym = nextStatus === 'checkmate' ? '#' : nextStatus === 'check' ? '+' : '';
+        const promoLetter = PROMO_LETTERS[pieceType];
+        const fullNotation = (promotionBaseNotation ?? '') + `=${promoLetter}${checkSym}`;
+
+        setMoveHistory(prev => {
+            const last = prev[prev.length - 1];
+            if (!last) return prev;
+            const colorField = color === 'white' ? 'white' : 'black' as const;
+            if (typeof last[colorField] === 'string' && (last[colorField] as string).includes('=?')) {
+                return [...prev.slice(0, -1), { ...last, [colorField]: fullNotation }];
+            }
+            return prev;
+        });
+
         setCells(newCells);
         setCurrentTurn(nextTurn);
         setPromotionPending(null);
-        setGameStatus(getGameStatus(newCells, nextTurn, enPassantTarget));
-    }, [promotionPending, currentTurn, cells, enPassantTarget]);
+        setPromotionBaseNotation(null);
+        setGameStatus(nextStatus);
+    }, [promotionPending, currentTurn, cells, enPassantTarget, promotionBaseNotation]);
 
     return {
         cells,
@@ -122,5 +178,6 @@ export function useGame() {
         promotionPending,
         confirmPromotion,
         resetGame,
+        moveHistory,
     };
 }

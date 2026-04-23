@@ -1,15 +1,12 @@
 * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
 body {
-  background: #302E2B;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  color: #f0d9b5;
-  font-family: sans-serif;
+    background: #262421;
+    overflow: hidden;
+    color: #e8e3de;
+    font-family: 'Noto Sans', 'Segoe UI', Arial, sans-serif;
 }

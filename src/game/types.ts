@@ -36,3 +36,9 @@ export interface Cell {
   cellColor: CellColor; // visual color of the hex tile
   piece: Piece | null;  // whichever piece sits here, or null if empty
 }
+
+export interface MoveRecord {
+  moveNumber: number;
+  white?: string;
+  black?: string;
+}

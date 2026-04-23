@@ -126,61 +126,46 @@ export function fileRankToPos(file: string, rank: number): Position {
     return { q, r };
 }
 
+
+
+// FEN builds by ranks, but for hex style JAN will build by files (since ranks basically bend in our implementation)
+// 6/P5P/RP4rp/N1P3p1n/Q2P2p2q/BBB1P1p1bbb/K2P2p2k/N1P3p1n/RP4rp/P5P/6
 export function getStartingPieces(): Map<string, Piece> {
+    return parseFen('6/P5p/RP4rp/N1P3p1n/Q2P2p2q/BBB1P1p1bbb/K2P2p2k/N1P3p1n/RP4rp/P5p/6');
+}
+
+
+const PIECE_FROM_CHAR: Record<string, PieceType> = {
+    p: 'pawn', r: 'rook', n: 'knight', b: 'bishop', q: 'queen', k: 'king',
+};
+
+/**
+ * Parses a OAN string into a piece map.
+ * Segments are separated by `/`, one per file (a–l), read from rank 1 upward.
+ * Uppercase letters = white, lowercase = black. Digits = empty cells.
+ *
+ * @param fen - The OAN FEN string to parse
+ * @returns Map of position keys to pieces
+ */
+export function parseFen(fen: string): Map<string, Piece> {
     const pieces = new Map<string, Piece>();
 
-    function place(file: string, rank: number, type: PieceType, color: Color) {
-        const pos = fileRankToPos(file, rank);
-        pieces.set(posKey(pos), { type, color });
-    }
+    fen.split('/').forEach((segment, i) => {
+        const q = i - 5;
+        let r = Math.max(-5, -5 - q);
 
-    /*
-    FEN --> OAN (Only Andrew Notation)
-
-    FEN builds by ranks, but for hex style we'll build by files (since ranks basically bend in our implementation)
-
-
-
-     */
-    place('f', 1, 'bishop', 'white');
-    place('e', 1, 'queen', 'white');
-    place('g', 1, 'king', 'white');
-    place('d', 1, 'knight', 'white');
-    place('f', 2, 'bishop', 'white');
-    place('h', 1, 'knight', 'white');
-    place('c', 1, 'rook', 'white');
-    place('i', 1, 'rook', 'white');
-    place('b', 1, 'pawn', 'white');
-    place('k', 1, 'pawn', 'white');
-    place('f', 3, 'bishop', 'white');
-    place('c', 2, 'pawn', 'white');
-    place('d', 3, 'pawn', 'white');
-    place('e', 4, 'pawn', 'white');
-    place('f', 5, 'pawn', 'white');
-    place('g', 4, 'pawn', 'white');
-    place('h', 3, 'pawn', 'white');
-    place('i', 2, 'pawn', 'white');
-
-
-    place('f', 11, 'bishop', 'black');
-    place('e', 10, 'queen', 'black');
-    place('g', 10, 'king', 'black');
-    place('d', 9, 'knight', 'black');
-    place('f', 10, 'bishop', 'black');
-    place('h', 9, 'knight', 'black');
-    place('c', 8, 'rook', 'black');
-    place('i', 8, 'rook', 'black');
-    place('b', 7, 'pawn', 'black');
-    place('k', 7, 'pawn', 'black');
-    place('f', 9, 'bishop', 'black');
-    place('c', 7, 'pawn', 'black');
-    place('d', 7, 'pawn', 'black');
-    place('e', 7, 'pawn', 'black');
-    place('f', 7, 'pawn', 'black');
-    place('g', 7, 'pawn', 'black');
-    place('h', 7, 'pawn', 'black');
-    place('i', 7, 'pawn', 'black');
+        for (const char of segment) {
+            if (/\d/.test(char)) {
+                r += parseInt(char);
+            }
+            else {
+                const color: Color = char === char.toUpperCase() ? 'white' : 'black';
+                const type = PIECE_FROM_CHAR[char.toLowerCase()];
+                pieces.set(posKey({ q, r }), { type, color });
+                r++;
+            }
+        }
+    });
 
     return pieces;
-
 }
