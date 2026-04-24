@@ -15,10 +15,11 @@ interface HexTileFillProps {
     isClickable: boolean;
     onClick: () => void;
     pieceSet: string;
+    flipped?: boolean;
 }
 
 
-export function HexTileFill({ cell, x, y, size, isSelected, isHighlight, isCheck, isClickable, onClick, pieceSet }: HexTileFillProps) {
+export function HexTileFill({ cell, x, y, size, isSelected, isHighlight, isCheck, isClickable, onClick, pieceSet, flipped }: HexTileFillProps) {
     const points = hexPoints(x, y, size);
 
     return (
@@ -54,6 +55,7 @@ export function HexTileFill({ cell, x, y, size, isSelected, isHighlight, isCheck
                     cy={y}
                     size={size * 0.6}
                     pieceSet={pieceSet}
+                    flipped={flipped}
                 />
             )}
         </g>

@@ -95,8 +95,6 @@ export function LandingPage({ themeName, pieceSet, onThemeChange, onPieceSetChan
                             icon={<span className="chessglyph">{'\u00F6'}</span>}
                             title="vs Computer"
                             desc="Challenge an AI opponent"
-                            badge="Coming Soon"
-                            disabled
                             onClick={() => navigate('/play/bot')}
                         />
                         <ModeCard

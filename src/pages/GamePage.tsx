@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Board } from '../components/Board/Board.tsx';
 import { Settings } from '../components/Settings/Settings.tsx';
 import { MoveHistory } from '../components/MoveHistory/MoveHistory.tsx';
 import { CapturedPieces } from '../components/CapturedPieces/CapturedPieces.tsx';
 import { TopBar } from '../components/TopBar/TopBar.tsx';
+import { BotSetup } from '../components/BotSetup/BotSetup.tsx';
 import { useGame } from '../hooks/useGame.ts';
+import { getBotMove, type Difficulty } from '../game/ai.ts';
 import { themes, type ThemeName } from '../uiConfig.ts';
+import type { Color } from '../game/types.ts';
 import '../App.css';
 import './LandingPage.css';
 import '../index.css';
@@ -36,12 +39,21 @@ interface GamePageProps {
 export function GamePage({ mode, themeName, pieceSet, onThemeChange, onPieceSetChange }: GamePageProps) {
     const [settingsOpen, setSettingsOpen] = useState(false);
 
+    // Bot-mode setup state
+    const [botReady, setBotReady] = useState(false);
+    const [playerColor, setPlayerColor] = useState<Color>('white');
+    const [difficulty, setDifficulty] = useState<Difficulty>('medium');
+
+    const botColor: Color = playerColor === 'white' ? 'black' : 'white';
+    const flipped = mode === 'bot' && playerColor === 'black';
+
     const {
         cells,
         currentTurn,
         selectedPos,
         validMoves,
         handleCellClick,
+        executeBotMove,
         gameStatus,
         capturedByWhite,
         capturedByBlack,
@@ -49,10 +61,54 @@ export function GamePage({ mode, themeName, pieceSet, onThemeChange, onPieceSetC
         confirmPromotion,
         resetGame,
         moveHistory,
+        enPassantTarget,
     } = useGame();
 
     const themeVars = themes[themeName] as Record<string, string>;
     const isGameOver = gameStatus === 'checkmate' || gameStatus === 'stalemate';
+
+    // Prevent player from clicking during the bot's turn
+    const wrappedHandleCellClick = useCallback((q: number, r: number) => {
+        if (mode === 'bot' && botReady && currentTurn !== playerColor) return;
+        handleCellClick(q, r);
+    }, [mode, botReady, currentTurn, playerColor, handleCellClick]);
+
+    // Trigger bot move when it's the computer's turn
+    useEffect(() => {
+        if (mode !== 'bot' || !botReady) return;
+        if (currentTurn !== botColor) return;
+        if (isGameOver) return;
+        if (promotionPending) return;
+
+        const timer = setTimeout(() => {
+            const move = getBotMove(cells, botColor, enPassantTarget, difficulty);
+            if (move) executeBotMove(move.from, move.to);
+        }, 350);
+
+        return () => clearTimeout(timer);
+    // cells/enPassantTarget intentionally omitted — currentTurn change is the trigger
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mode, botReady, currentTurn, botColor, isGameOver, promotionPending]);
+
+    // Auto-promote to queen for the bot
+    useEffect(() => {
+        if (mode !== 'bot' || !botReady) return;
+        if (!promotionPending) return;
+        if (currentTurn !== botColor) return;
+        confirmPromotion('queen');
+    }, [mode, botReady, promotionPending, currentTurn, botColor, confirmPromotion]);
+
+    // Reset bot state when "New Game" is clicked — keep same settings
+    const handleReset = useCallback(() => {
+        resetGame();
+    }, [resetGame]);
+
+    function handleBotStart(color: Color, diff: Difficulty) {
+        setPlayerColor(color);
+        setDifficulty(diff);
+        resetGame();
+        setBotReady(true);
+    }
 
     let statusMessage = '';
     let statusVariant = '';
@@ -73,18 +129,24 @@ export function GamePage({ mode, themeName, pieceSet, onThemeChange, onPieceSetC
 
     const modeLabel = mode === 'analysis' ? 'Analysis' : mode === 'bot' ? 'vs Computer' : mode === 'online' ? 'Online' : 'Local';
 
+    // In bot mode, top panel = opponent (bot), bottom panel = player
+    const topColor: Color = mode === 'bot' ? botColor : 'black';
+    const bottomColor: Color = mode === 'bot' ? playerColor : 'white';
+    const topLabel = mode === 'bot' ? 'Computer' : 'Black';
+    const bottomLabel = mode === 'bot' ? 'You' : 'White';
+
     return (
         <div className="app-shell" style={themeVars}>
             <TopBar onSettingsOpen={() => setSettingsOpen(true)} />
             <div className="game-content">
             <main className="board-area">
-                <div className={`player-panel${currentTurn === 'black' && !isGameOver ? ' player-panel--active' : ''}`}>
-                    <PlayerAvatar color="black" />
+                <div className={`player-panel${currentTurn === topColor && !isGameOver ? ' player-panel--active' : ''}`}>
+                    <PlayerAvatar color={topColor} />
                     <div className="player-info">
-                        <span className="player-name">Black</span>
-                        <CapturedPieces pieces={capturedByBlack} />
+                        <span className="player-name">{topLabel}</span>
+                        <CapturedPieces pieces={topColor === 'black' ? capturedByBlack : capturedByWhite} />
                     </div>
-                    {currentTurn === 'black' && !isGameOver && <div className="turn-dot" />}
+                    {currentTurn === topColor && !isGameOver && <div className="turn-dot" />}
                 </div>
 
                 <Board
@@ -92,20 +154,21 @@ export function GamePage({ mode, themeName, pieceSet, onThemeChange, onPieceSetC
                     currentTurn={currentTurn}
                     selectedPos={selectedPos}
                     validMoves={validMoves}
-                    handleCellClick={handleCellClick}
+                    handleCellClick={wrappedHandleCellClick}
                     gameStatus={gameStatus}
                     promotionPending={promotionPending}
                     confirmPromotion={confirmPromotion}
                     pieceSet={pieceSet}
+                    flipped={flipped}
                 />
 
-                <div className={`player-panel${currentTurn === 'white' && !isGameOver ? ' player-panel--active' : ''}`}>
-                    <PlayerAvatar color="white" />
+                <div className={`player-panel${currentTurn === bottomColor && !isGameOver ? ' player-panel--active' : ''}`}>
+                    <PlayerAvatar color={bottomColor} />
                     <div className="player-info">
-                        <span className="player-name">White</span>
-                        <CapturedPieces pieces={capturedByWhite} />
+                        <span className="player-name">{bottomLabel}</span>
+                        <CapturedPieces pieces={bottomColor === 'white' ? capturedByWhite : capturedByBlack} />
                     </div>
-                    {currentTurn === 'white' && !isGameOver && <div className="turn-dot" />}
+                    {currentTurn === bottomColor && !isGameOver && <div className="turn-dot" />}
                 </div>
             </main>
 
@@ -121,12 +184,16 @@ export function GamePage({ mode, themeName, pieceSet, onThemeChange, onPieceSetC
                             {statusMessage}
                         </div>
                     )}
-                    <button className="new-game-btn" onClick={resetGame}>
+                    <button className="new-game-btn" onClick={handleReset}>
                         + New Game
                     </button>
                 </div>
             </aside>
             </div>
+
+            {mode === 'bot' && !botReady && (
+                <BotSetup onStart={handleBotStart} />
+            )}
 
             {settingsOpen && (
                 <Settings

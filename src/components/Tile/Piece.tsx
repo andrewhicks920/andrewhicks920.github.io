@@ -6,6 +6,7 @@ interface PieceProps {
     cy: number;
     size: number;
     pieceSet: string;
+    flipped?: boolean;
 }
 
 const PIECE_MAP: Record<string, string> = {
@@ -14,8 +15,7 @@ const PIECE_MAP: Record<string, string> = {
 };
 
 
-// Generate filename (e.g., 'w' + 'k' = 'wk')
-export function PieceSymbol({ piece, cx, cy, size, pieceSet }: PieceProps) {
+export function PieceSymbol({ piece, cx, cy, size, pieceSet, flipped }: PieceProps) {
     const color = piece.color === 'white' ? 'w' : 'b';
     const pieceType = PIECE_MAP[piece.type];
 
@@ -29,6 +29,7 @@ export function PieceSymbol({ piece, cx, cy, size, pieceSet }: PieceProps) {
             width={size * 2}
             height={size * 2}
             style={{pointerEvents: 'none'}}
+            transform={flipped ? `rotate(180, ${cx}, ${cy})` : undefined}
         />
     );
 }

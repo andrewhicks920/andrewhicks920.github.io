@@ -207,6 +207,65 @@ export function useGame() {
         setPromotionBaseNotation(null);
     }, []);
 
+    const executeBotMove = useCallback((from: Position, to: Position) => {
+        const movingPiece = cells.find(c => c.q === from.q && c.r === from.r)?.piece;
+        if (!movingPiece) return;
+
+        const isPawnDouble =
+            movingPiece.type === 'pawn' && Math.abs(to.r - from.r) === 2;
+        const newEnPassantTarget: Position | null = isPawnDouble
+            ? { q: to.q, r: (from.r + to.r) / 2 }
+            : null;
+
+        const normalCapture = cells.find(c => c.q === to.q && c.r === to.r)?.piece ?? null;
+        const epCapR = enPassantTarget
+            ? enPassantTarget.r + (movingPiece.color === 'white' ? -1 : 1)
+            : null;
+        const epCapture =
+            enPassantTarget && to.q === enPassantTarget.q && to.r === enPassantTarget.r && epCapR !== null
+                ? cells.find(c => c.q === enPassantTarget.q && c.r === epCapR)?.piece ?? null
+                : null;
+        const captured = normalCapture ?? epCapture;
+
+        if (captured) {
+            if (movingPiece.color === 'white')
+                setCapturedByWhite(prev => [...prev, captured]);
+            else
+                setCapturedByBlack(prev => [...prev, captured]);
+        }
+
+        const preMoveBoard = cells;
+        const newCells = applyMove(cells, from, to, enPassantTarget, movingPiece.color);
+        const nextTurn: Color = currentTurn === 'white' ? 'black' : 'white';
+        const isPromotion =
+            movingPiece.type === 'pawn' &&
+            isPromotionSquare(to.q, to.r, movingPiece.color);
+
+        setCells(newCells);
+        setEnPassantTarget(newEnPassantTarget);
+        setSelectedPos(null);
+        setValidMoves([]);
+
+        if (isPromotion) {
+            const baseNotation = buildNotation(
+                movingPiece, from, to, !!captured, '',
+                preMoveBoard, enPassantTarget,
+            );
+            setPromotionBaseNotation(baseNotation);
+            setMoveHistory(prev => addToHistory(prev, movingPiece.color, baseNotation + '=?'));
+            setPromotionPending(to);
+        } else {
+            const nextStatus = getGameStatus(newCells, nextTurn, newEnPassantTarget);
+            const notation = buildNotation(
+                movingPiece, from, to, !!captured, nextStatus,
+                preMoveBoard, enPassantTarget,
+            );
+            setMoveHistory(prev => addToHistory(prev, movingPiece.color, notation));
+            setCurrentTurn(nextTurn);
+            setGameStatus(nextStatus);
+        }
+    }, [cells, currentTurn, enPassantTarget]);
+
     const confirmPromotion = useCallback((pieceType: PieceType) => {
         if (!promotionPending) return;
         const color = currentTurn;
@@ -243,6 +302,7 @@ export function useGame() {
         selectedPos,
         validMoves,
         handleCellClick,
+        executeBotMove,
         gameStatus,
         capturedByWhite,
         capturedByBlack,
@@ -250,5 +310,6 @@ export function useGame() {
         confirmPromotion,
         resetGame,
         moveHistory,
+        enPassantTarget,
     };
 }

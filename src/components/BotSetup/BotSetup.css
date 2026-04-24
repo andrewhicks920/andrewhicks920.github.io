@@ -1,0 +1,153 @@
+.bot-setup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+}
+
+.bot-setup-modal {
+    background: #302e2c;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 36px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    min-width: 340px;
+    max-width: 420px;
+    width: 90vw;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+}
+
+.bot-setup-title {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #e8e3de;
+    text-align: center;
+}
+
+.bot-setup-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.bot-setup-label {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #9a9998;
+}
+
+/* Color selection row */
+.bot-setup-color-row {
+    display: flex;
+    gap: 10px;
+}
+
+.bot-setup-color-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 8px;
+    background: #262421;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    color: #9a9998;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.bot-setup-color-btn:hover {
+    background: #2e2b29;
+    color: #e8e3de;
+}
+
+.bot-setup-color-btn.active {
+    border-color: #81b64c;
+    color: #e8e3de;
+    background: #2e2b29;
+}
+
+.bot-setup-color-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bot-setup-color-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+/* Difficulty list */
+.bot-setup-difficulty-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.bot-setup-diff-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #262421;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    color: #9a9998;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.bot-setup-diff-btn:hover {
+    background: #2e2b29;
+    color: #e8e3de;
+}
+
+.bot-setup-diff-btn.active {
+    border-color: #81b64c;
+    color: #e8e3de;
+    background: #2e2b29;
+}
+
+.bot-setup-diff-label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    min-width: 70px;
+}
+
+.bot-setup-diff-desc {
+    font-size: 0.8rem;
+    color: #6a6866;
+}
+
+.bot-setup-diff-btn.active .bot-setup-diff-desc {
+    color: #9a9998;
+}
+
+/* Play button */
+.bot-setup-play-btn {
+    padding: 14px;
+    background: #81b64c;
+    color: #1a1a1a;
+    font-size: 1rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.bot-setup-play-btn:hover {
+    background: #93c75a;
+}

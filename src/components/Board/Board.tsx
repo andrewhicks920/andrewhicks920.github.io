@@ -71,6 +71,7 @@ interface BoardProps {
     promotionPending: Position | null;
     confirmPromotion: (pieceType: PieceType) => void;
     pieceSet: string;
+    flipped?: boolean;
 }
 
 export function Board({
@@ -83,6 +84,7 @@ export function Board({
     promotionPending,
     confirmPromotion,
     pieceSet,
+    flipped = false,
 }: BoardProps) {
     const validMoveSet = new Set(validMoves.map(p => `${p.q},${p.r}`));
 
@@ -101,53 +103,68 @@ export function Board({
                 width="100%"
                 height="100%"
             >
-                {cells.map(cell => {
-                    const { x, y } = toPixel(cell.q, cell.r, CELL_SIZE);
-                    const key = `${cell.q},${cell.r}`;
-                    const isSelected = selectedPos?.q === cell.q && selectedPos?.r === cell.r;
-                    const isHighlight = validMoveSet.has(key);
-                    const isCheck = key === checkKey;
-                    const isClickable =
-                        !promotionPending &&
-                        !isGameOver &&
-                        (!!cell.piece || isHighlight);
+                <g transform={flipped ? 'rotate(180)' : undefined}>
+                    {cells.map(cell => {
+                        const { x, y } = toPixel(cell.q, cell.r, CELL_SIZE);
+                        const key = `${cell.q},${cell.r}`;
+                        const isSelected = selectedPos?.q === cell.q && selectedPos?.r === cell.r;
+                        const isHighlight = validMoveSet.has(key);
+                        const isCheck = key === checkKey;
+                        const isClickable =
+                            !promotionPending &&
+                            !isGameOver &&
+                            (!!cell.piece || isHighlight);
 
-                    return (
-                        <HexTileFill
-                            key={`fill-${key}`}
-                            cell={cell}
+                        return (
+                            <HexTileFill
+                                key={`fill-${key}`}
+                                cell={cell}
+                                x={x}
+                                y={y}
+                                size={CELL_SIZE}
+                                isSelected={isSelected}
+                                isHighlight={isHighlight}
+                                isCheck={isCheck}
+                                isClickable={isClickable}
+                                pieceSet={pieceSet}
+                                flipped={flipped}
+                                onClick={() => handleCellClick(cell.q, cell.r)}
+                            />
+                        );
+                    })}
+
+                    <path
+                        d={GRID_PATH}
+                        stroke="#111"
+                        strokeWidth={2}
+                        fill="none"
+                        style={{ pointerEvents: 'none' }}
+                    />
+
+                    {FILE_LABELS.map(({ label, x, y }) => (
+                        <text
+                            key={`file-${label}`}
+                            className="file-label"
                             x={x}
                             y={y}
-                            size={CELL_SIZE}
-                            isSelected={isSelected}
-                            isHighlight={isHighlight}
-                            isCheck={isCheck}
-                            isClickable={isClickable}
-                            pieceSet={pieceSet}
-                            onClick={() => handleCellClick(cell.q, cell.r)}
-                        />
-                    );
-                })}
+                            transform={flipped ? `rotate(180, ${x}, ${y})` : undefined}
+                        >
+                            {label}
+                        </text>
+                    ))}
 
-                <path
-                    d={GRID_PATH}
-                    stroke="#111"
-                    strokeWidth={2}
-                    fill="none"
-                    style={{ pointerEvents: 'none' }}
-                />
-
-                {FILE_LABELS.map(({ label, x, y }) => (
-                    <text key={`file-${label}`} className="file-label" x={x} y={y}>
-                        {label}
-                    </text>
-                ))}
-
-                {RANK_LABELS.map(({ label, x, y }) => (
-                    <text key={`rank-${label}`} className="rank-label" x={x} y={y}>
-                        {label}
-                    </text>
-                ))}
+                    {RANK_LABELS.map(({ label, x, y }) => (
+                        <text
+                            key={`rank-${label}`}
+                            className="rank-label"
+                            x={x}
+                            y={y}
+                            transform={flipped ? `rotate(180, ${x}, ${y})` : undefined}
+                        >
+                            {label}
+                        </text>
+                    ))}
+                </g>
             </svg>
 
             {promotionPending && (
