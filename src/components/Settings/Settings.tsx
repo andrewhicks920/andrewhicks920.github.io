@@ -1,4 +1,4 @@
-import { themes, type ThemeName } from '../../themes.ts';
+import { themes, type ThemeName } from '../../uiConfig.ts';
 import './Settings.css';
 
 const PIECE_SETS = [

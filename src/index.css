@@ -1,15 +1,28 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@font-face {
+    font-family: 'chessglyph';
+    src: url('./assets/fonts/chessglyph.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'chesscom-sans';
+    src: url('./assets/fonts/chesscom-sans.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+
+* { /* Gets rid of margin around edge of page */
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
 body {
-  background: #302E2B;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  color: #f0d9b5;
-  font-family: sans-serif;
+    background: #262421;
+    overflow: hidden;
+    font-family: 'Noto Sans', 'Segoe UI', Arial, sans-serif;
 }

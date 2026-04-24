@@ -1,0 +1,32 @@
+<svg width="100%" viewBox="95 50 147 167" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>Hexagonal Chess Logo</title>
+
+  <!-- Ring 2 hexes (outer decorative) - muted -->
+  <polygon points="168,60 188.8,72 188.8,96 168,108 147.2,96 147.2,72" fill="#0C234B" opacity="0.2"/>
+  <polygon points="210.4,84 231.2,96 231.2,120 210.4,132 189.6,120 189.6,96" fill="#AB0520" opacity="0.2"/>
+  <polygon points="210.4,132 231.2,144 231.2,168 210.4,180 189.6,168 189.6,144" fill="#0C234B" opacity="0.2"/>
+  <polygon points="168,156 188.8,168 188.8,192 168,204 147.2,192 147.2,168" fill="#AB0520" opacity="0.2"/>
+  <polygon points="125.6,132 146.4,144 146.4,168 125.6,180 104.8,168 104.8,144" fill="#0C234B" opacity="0.2"/>
+  <polygon points="125.6,84 146.4,96 146.4,120 125.6,132 104.8,120 104.8,96" fill="#AB0520" opacity="0.2"/>
+  <polygon points="168,108 188.8,120 188.8,144 168,156 147.2,144 147.2,120" fill="#888780" opacity="0.15"/>
+
+  <!-- Ring 1 hexes (inner 6 around center) - vibrant -->
+  <polygon points="168,72 185.6,81.6 185.6,100.8 168,110.4 150.4,100.8 150.4,81.6" fill="#0C234B" stroke="#FFFFFF" stroke-width="2" opacity="0.85"/>
+  <polygon points="204.8,96 222.4,105.6 222.4,124.8 204.8,134.4 187.2,124.8 187.2,105.6" fill="#AB0520" stroke="#FFFFFF" stroke-width="2" opacity="0.85"/>
+  <polygon points="204.8,144 222.4,153.6 222.4,172.8 204.8,182.4 187.2,172.8 187.2,153.6" fill="#0C234B" stroke="#FFFFFF" stroke-width="2" opacity="0.85"/>
+  <polygon points="168,168 185.6,177.6 185.6,196.8 168,206.4 150.4,196.8 150.4,177.6" fill="#AB0520" stroke="#FFFFFF" stroke-width="2" opacity="0.85"/>
+  <polygon points="131.2,144 148.8,153.6 148.8,172.8 131.2,182.4 113.6,172.8 113.6,153.6" fill="#0C234B" stroke="#FFFFFF" stroke-width="2" opacity="0.85"/>
+  <polygon points="131.2,96 148.8,105.6 148.8,124.8 131.2,134.4 113.6,124.8 113.6,105.6" fill="#AB0520" stroke="#FFFFFF" stroke-width="2" opacity="0.85"/>
+
+  <!-- Center hex -->
+  <polygon points="168,120 185.6,129.6 185.6,148.8 168,158.4 150.4,148.8 150.4,129.6" fill="#FFFFFF" stroke="#0C234B" stroke-width="2.5" opacity="0.95"/>
+
+  <!-- King silhouette -->
+  <g transform="translate(168,139)" opacity="0.9">
+    <rect x="-9" y="9" width="18" height="4" rx="1.5" fill="#0C234B"/>
+    <rect x="-7" y="1" width="14" height="9" rx="1" fill="#0C234B"/>
+    <polygon points="-7,1 -7,-5 -3,-1 0,-6 3,-1 7,-5 7,1" fill="#0C234B"/>
+    <rect x="-1.5" y="-10" width="3" height="6" rx="1" fill="#0C234B"/>
+    <rect x="-4" y="-7" width="8" height="2.5" rx="1" fill="#0C234B"/>
+  </g>
+</svg>

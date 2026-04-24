@@ -1,32 +1,29 @@
 import { useState } from 'react';
-import { Board } from './components/Board/Board.tsx';
-import { Settings } from './components/Settings/Settings.tsx';
-import { themes, type ThemeName } from './themes.ts';
-import './App.css';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { LandingPage } from './pages/LandingPage.tsx';
+import { GamePage } from './pages/GamePage.tsx';
+import { type ThemeName } from './uiConfig.ts';
 
 function App() {
     const [themeName, setThemeName] = useState<ThemeName>('classic');
     const [pieceSet, setPieceSet] = useState('neo');
-    const [settingsOpen, setSettingsOpen] = useState(false);
 
-    const themeVars = themes[themeName] as Record<string, string>;
+    const sharedProps = {
+        themeName,
+        pieceSet,
+        onThemeChange: setThemeName,
+        onPieceSetChange: setPieceSet,
+    };
 
     return (
-        <div className="app" style={themeVars}>
-            <Board
-                pieceSet={pieceSet}
-                onSettingsOpen={() => setSettingsOpen(true)}
-            />
-            {settingsOpen && (
-                <Settings
-                    themeName={themeName}
-                    pieceSet={pieceSet}
-                    onThemeChange={setThemeName}
-                    onPieceSetChange={setPieceSet}
-                    onClose={() => setSettingsOpen(false)}
-                />
-            )}
-        </div>
+        <Routes>
+            <Route path="/" element={<LandingPage {...sharedProps} />} />
+            <Route path="/play/local" element={<GamePage mode="local" {...sharedProps} />} />
+            <Route path="/play/bot" element={<GamePage mode="bot" {...sharedProps} />} />
+            <Route path="/play/online" element={<GamePage mode="online" {...sharedProps} />} />
+            <Route path="/analysis" element={<GamePage mode="analysis" {...sharedProps} />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
     );
 }
 

@@ -15,3 +15,11 @@ export const themes = {
 } as const;
 
 export type ThemeName = keyof typeof themes;
+
+// Shared chessglyph codepoints for landing page nav icons.
+export const NAV_ICONS = {
+    play:     '\u004A',
+    analysis: '\u0024',
+    puzzles:  '\u03DE',
+    settings: '\u03F7',
+} as const;

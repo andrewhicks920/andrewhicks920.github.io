@@ -24,4 +24,4 @@ dist-ssr
 *.sw?
 
 # Extra stuff of mine
-breakdown.txt
+.env

@@ -65,7 +65,7 @@ src/
 │   └── CapturedPieces/ # Captured pieces display
 ├── hooks/
 │   └── useGame.ts      # All game state management
-├── themes.ts           # Color theme definitions
+├── uiConfig.ts           # Color theme definitions
 └── App.tsx             # Root component
 ```
 
