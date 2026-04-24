@@ -34,27 +34,55 @@ function buildGridPath(size: number): string {
 
 const GRID_PATH = buildGridPath(CELL_SIZE);
 
-const FILE_LABELS = Array.from(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'k', 'l'], (label, i) => {
-    const q = i - 5;
-    const rMin = Math.max(-5, -5 - q);
-    const { x, y } = toPixel(q, rMin, CELL_SIZE);
-    return { label, x: x, y: y + HEX_H + 25 };
-});
+function buildFileLabels(flipped: boolean) {
+    return Array.from(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'k', 'l'], (label, i) => {
+        const q = i - 5;
+        const r = flipped ? Math.min(5, 5 - q) : Math.max(-5, -5 - q);
+        const { x, y } = toPixel(q, r, CELL_SIZE);
 
-const RANK_LABELS = Array.from({ length: 11 }, (_, i) => {
-    const rank = i + 1;
-    const sum = rank - 6;
-    const q = Math.max(-5, sum - 5);
-    const r = sum - q;
-    const { x, y } = toPixel(q, r, CELL_SIZE);
-    if (rank >= 6) {
-        const topRightHexCornerPos = hexVertices(x, y, CELL_SIZE)[4];
-        return { label: rank, x: topRightHexCornerPos[0] - 10, y: topRightHexCornerPos[1] - 10 };
-    } else {
-        const bottomLeftHexCornerPos = hexVertices(x, y, CELL_SIZE)[3];
-        return { label: rank, x: bottomLeftHexCornerPos[0] - 10, y: bottomLeftHexCornerPos[1] };
-    }
-});
+        if (flipped)
+            return { label, x, y: y - HEX_H - 25 };
+
+        else
+            return { label, x, y: y + HEX_H + 25 };
+    });
+}
+
+function buildRankLabels(flipped: boolean) {
+    return Array.from({ length: 11 }, (_, i) => {
+        const rank = i + 1;
+        const sum = rank - 6;
+
+        // Flipped uses the right hexagonal edge; normal uses the left edge.
+        const q = flipped ? Math.min(5, sum + 5) : Math.max(-5, sum - 5);
+        const r = sum - q;
+        const { x, y } = toPixel(q, r, CELL_SIZE);
+
+        if (flipped) { // Use the rightmost cell of the rank — after rotate(180) this appears on the left
+
+            if (rank > 6) {
+                const v = hexVertices(x, y, CELL_SIZE)[0]; // middle-left vertex
+                return { label: rank, x: v[0] + 10, y: v[1] - 5 };
+            }
+            else {
+                const v = hexVertices(x, y, CELL_SIZE)[1]; // top-left vertex
+                return { label: rank, x: v[0] + 10, y: v[1] + 10};
+            }
+        }
+
+        else {
+
+            if (rank >= 6) {
+                const v = hexVertices(x, y, CELL_SIZE)[4]; // top-left vertex
+                return { label: rank, x: v[0] - 10, y: v[1] - 10 };
+            }
+            else {
+                const v = hexVertices(x, y, CELL_SIZE)[3]; // left-middle vertex
+                return { label: rank, x: v[0] - 10, y: v[1] };
+            }
+        }
+    });
+}
 
 function pieceImageSrc(color: Color, type: PieceType, pieceSet: string): string {
     const c = color === 'white' ? 'w' : 'b';
@@ -94,6 +122,9 @@ export function Board({
     const checkKey = kingInCheckKey ? `${kingInCheckKey.q},${kingInCheckKey.r}` : null;
 
     const isGameOver = gameStatus === 'checkmate' || gameStatus === 'stalemate';
+
+    const fileLabels = buildFileLabels(flipped);
+    const rankLabels = buildRankLabels(flipped);
 
     return (
         <div className="board-wrapper">
@@ -141,7 +172,7 @@ export function Board({
                         style={{ pointerEvents: 'none' }}
                     />
 
-                    {FILE_LABELS.map(({ label, x, y }) => (
+                    {fileLabels.map(({ label, x, y }) => (
                         <text
                             key={`file-${label}`}
                             className="file-label"
@@ -153,7 +184,7 @@ export function Board({
                         </text>
                     ))}
 
-                    {RANK_LABELS.map(({ label, x, y }) => (
+                    {rankLabels.map(({ label, x, y }) => (
                         <text
                             key={`rank-${label}`}
                             className="rank-label"

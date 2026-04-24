@@ -15,117 +15,12 @@
     min-height: 0;
 }
 
-.sidebar {
-    width: 68px;
-    background: #1a1a1a;
-    display: flex;
-    flex-direction: column;
-    border-right: 1px solid rgba(255, 255, 255, 0.07);
-    flex-shrink: 0;
-    overflow: hidden;
-    transition: width 0.2s ease;
-}
+
 
 @media (min-width: 1100px) {
     .sidebar {
         width: 200px;
     }
-}
-
-.sidebar-brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 16px 14px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-    min-height: 62px;
-    flex-shrink: 0;
-    width: 100%;
-    text-decoration: none;
-    color: inherit;
-    cursor: pointer;
-    transition: background 0.15s;
-}
-
-.sidebar-brand:hover {
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.sidebar-brand-logo {
-    height: 100px; /* Adjust the height as needed */
-    width: 200px;  /* Adjust the width as needed */
-    display: flex;  /* Use Flexbox */
-    justify-content: center; /* Center horizontally */
-    align-items: center; /* Center vertically */
-}
-
-.sidebar-logo-icon {
-    font-size: 1.9rem;
-    color: #81b64c;
-    flex-shrink: 0;
-    line-height: 1;
-}
-
-.sidebar-brand-text {
-    font-size: 1rem;
-    font-weight: 700;
-    color: #e8e3de;
-    white-space: nowrap;
-    overflow: hidden;
-}
-
-.sidebar-nav {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 8px 0;
-    gap: 2px;
-    overflow: hidden;
-}
-
-.sidebar-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
-    background: none;
-    border: none;
-    color: #9a9998;
-    cursor: pointer;
-    font-size: 0.88rem;
-    font-weight: 500;
-    text-align: left;
-    white-space: nowrap;
-    transition: background 0.15s, color 0.15s;
-    width: 100%;
-    font-family: inherit;
-}
-
-.sidebar-item:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: #e8e3de;
-}
-
-.sidebar-item--active {
-    color: #e8e3de;
-    background: rgba(129, 182, 76, 0.12);
-}
-
-.sidebar-item-icon {
-    font-size: 1.1rem;
-    flex-shrink: 0;
-    width: 22px;
-    text-align: center;
-}
-
-.sidebar-item-label {
-    overflow: hidden;
-}
-
-.sidebar-bottom {
-    border-top: 1px solid rgba(255, 255, 255, 0.07);
-    padding: 8px 0;
-    flex-shrink: 0;
 }
 
 .board-area {
