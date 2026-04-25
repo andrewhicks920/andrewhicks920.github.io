@@ -1,5 +1,5 @@
 import { type Cell, type Color, type Position, type PieceType, oppositeColor } from './types';
-import { getLegalMoves, getGameStatus } from './gameLogic';
+import { getLegalMoves, getGameStatus, isPromotionSquare } from './gameLogic';
 import { applyMove, computeEnPassantTarget } from './board';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
@@ -32,6 +32,21 @@ function evaluate(cells: Cell[], color: Color): number {
 function newEnPassant(cells: Cell[], move: Move): Position | null {
     const piece = cells.find(c => c.q === move.from.q && c.r === move.from.r)?.piece;
     return computeEnPassantTarget(move.from, move.to, piece);
+}
+
+/** applyMove + auto-promote to queen so minimax evaluates the correct piece. */
+function simulateMove(cells: Cell[], move: Move, enPassantTarget: Position | null, color: Color): Cell[] {
+    const next = applyMove(cells, move.from, move.to, enPassantTarget, color);
+    const piece = cells.find(c => c.q === move.from.q && c.r === move.from.r)?.piece;
+
+    if (piece?.type === 'pawn' && isPromotionSquare(move.to.q, move.to.r, color)) {
+        return next.map(cell =>
+            cell.q === move.to.q && cell.r === move.to.r
+                ? { ...cell, piece: { type: 'queen', color } }
+                : cell,
+        );
+    }
+    return next;
 }
 
 function getAllMoves(cells: Cell[], color: Color, enPassantTarget: Position | null): Move[] {
@@ -67,7 +82,7 @@ function minimax(
     if (maximizing) {
         let best = -Infinity;
         for (const move of moves) {
-            const next = applyMove(cells, move.from, move.to, enPassantTarget, sideToMove);
+            const next = simulateMove(cells, move, enPassantTarget, sideToMove);
             const score = minimax(next, depth - 1, alpha, beta, false, botColor, newEnPassant(cells, move));
             best = Math.max(best, score);
             alpha = Math.max(alpha, score);
@@ -78,7 +93,7 @@ function minimax(
     else {
         let best = Infinity;
         for (const move of moves) {
-            const next = applyMove(cells, move.from, move.to, enPassantTarget, sideToMove);
+            const next = simulateMove(cells, move, enPassantTarget, sideToMove);
             const score = minimax(next, depth - 1, alpha, beta, true, botColor, newEnPassant(cells, move));
             best = Math.min(best, score);
             beta = Math.min(beta, score);
@@ -108,7 +123,7 @@ export function getBotMove(
     let bestScore = -Infinity;
 
     for (const move of moves) {
-        const next = applyMove(cells, move.from, move.to, enPassantTarget, botColor);
+        const next = simulateMove(cells, move, enPassantTarget, botColor);
         const score = minimax(next, depth - 1, -Infinity, Infinity, false, botColor, newEnPassant(cells, move));
         if (score > bestScore) {
             bestScore = score;
