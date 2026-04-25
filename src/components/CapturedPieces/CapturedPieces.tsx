@@ -1,32 +1,25 @@
 import type { Piece } from '../../game/types.ts';
+import { pieceImageSrc } from '../Tile/Piece.tsx';
 import './CapturedPieces.css';
-
-const PIECE_UNICODE: Record<string, { white: string; black: string }> = {
-    king:   { white: '♔', black: '♚' },
-    queen:  { white: '♕', black: '♛' },
-    rook:   { white: '♖', black: '♜' },
-    bishop: { white: '♗', black: '♝' },
-    knight: { white: '♘', black: '♞' },
-    pawn:   { white: '♙', black: '♟' },
-};
 
 interface Props {
     pieces: Piece[];
+    pieceSet: string;
 }
 
-export function CapturedPieces({ pieces }: Props) {
+export function CapturedPieces({ pieces, pieceSet }: Props) {
     if (pieces.length === 0) return null;
 
     return (
         <div className="captured-pieces">
             {pieces.map((piece, i) => (
-                <span
+                <img
                     key={i}
-                    className={`captured-piece captured-piece--${piece.color}`}
+                    className="captured-piece"
+                    src={pieceImageSrc(piece.color, piece.type, pieceSet)}
+                    alt={`${piece.color} ${piece.type}`}
                     title={`${piece.color} ${piece.type}`}
-                >
-                    {PIECE_UNICODE[piece.type][piece.color]}
-                </span>
+                />
             ))}
         </div>
     );

@@ -9,7 +9,6 @@ import { useGame } from '../hooks/useGame.ts';
 import { getBotMove, type Difficulty } from '../game/ai.ts';
 import { themes, type ThemeName } from '../uiConfig.ts';
 import type { Color } from '../game/types.ts';
-import '../App.css';
 
 function PlayerAvatar({ color }: { color: 'white' | 'black' }) {
     const bg = color === 'white' ? '#9f9689' : '#555353';
@@ -138,7 +137,7 @@ export function GamePage({ mode, themeName, pieceSet, onThemeChange, onPieceSetC
                     <PlayerAvatar color={topColor} />
                     <div className="player-info">
                         <span className="player-name">{topLabel}</span>
-                        <CapturedPieces pieces={topColor === 'black' ? capturedByBlack : capturedByWhite} />
+                        <CapturedPieces pieces={topColor === 'black' ? capturedByBlack : capturedByWhite} pieceSet={pieceSet} />
                     </div>
                     {currentTurn === topColor && !isGameOver && <div className="turn-dot" />}
                 </div>
@@ -160,7 +159,7 @@ export function GamePage({ mode, themeName, pieceSet, onThemeChange, onPieceSetC
                     <PlayerAvatar color={bottomColor} />
                     <div className="player-info">
                         <span className="player-name">{bottomLabel}</span>
-                        <CapturedPieces pieces={bottomColor === 'white' ? capturedByWhite : capturedByBlack} />
+                        <CapturedPieces pieces={bottomColor === 'white' ? capturedByWhite : capturedByBlack} pieceSet={pieceSet} />
                     </div>
                     {currentTurn === bottomColor && !isGameOver && <div className="turn-dot" />}
                 </div>

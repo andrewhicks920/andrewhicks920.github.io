@@ -21,6 +21,7 @@ export function pieceImageSrc(color: Color, type: PieceType, pieceSet: string): 
 
 export function PieceSymbol({ piece, cx, cy, size, pieceSet, flipped }: PieceProps) {
     const src = pieceImageSrc(piece.color, piece.type, pieceSet);
+
     return (
         <image
             href={src}

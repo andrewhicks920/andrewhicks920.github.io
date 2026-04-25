@@ -16,7 +16,7 @@ export const themes = {
 
 export type ThemeName = keyof typeof themes;
 
-// Shared chessglyph codepoints for landing page nav icons.
+// chessglyph codepoints for landing page nav icons.
 export const NAV_ICONS = {
     play:     '\u004A',
     analysis: '\u0024',
