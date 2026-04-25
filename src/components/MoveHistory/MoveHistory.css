@@ -69,9 +69,3 @@
     gap: 1px;
 }
 
-.piece-glyph {
-    font-family: 'chessglyph', sans-serif;
-    font-size: 1.15em;
-    line-height: 1;
-    vertical-align: middle;
-}

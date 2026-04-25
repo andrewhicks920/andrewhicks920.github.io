@@ -19,11 +19,9 @@ export function BotSetup({ onStart }: BotSetupProps) {
     const [difficulty, setDifficulty] = useState<Difficulty>('medium');
 
     function handlePlay() {
-        let color: Color;
-
-        if (colorChoice === 'random') color = Math.random() < 0.5 ? 'white' : 'black';
-
-        else color = colorChoice;
+        const color: Color = colorChoice === 'random'
+            ? (Math.random() < 0.5 ? 'white' : 'black')
+            : colorChoice;
         onStart(color, difficulty);
     }
 

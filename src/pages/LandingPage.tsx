@@ -2,8 +2,7 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Settings } from '../components/Settings/Settings.tsx';
 import { TopBar } from '../components/TopBar/TopBar.tsx';
-import { type ThemeName } from '../uiConfig.ts';
-import { NAV_ICONS } from '../uiConfig.ts';
+import { NAV_ICONS, type ThemeName } from '../uiConfig.ts';
 import '../App.css';
 import './LandingPage.css';
 

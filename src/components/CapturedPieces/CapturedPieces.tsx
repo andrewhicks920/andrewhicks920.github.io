@@ -14,7 +14,7 @@ export function CapturedPieces({ pieces, pieceSet }: Props) {
         <div className="captured-pieces">
             {pieces.map((piece, i) => (
                 <img
-                    key={i}
+                    key={`${piece.color}-${piece.type}-${i}`}
                     className="captured-piece"
                     src={pieceImageSrc(piece.color, piece.type, pieceSet)}
                     alt={`${piece.color} ${piece.type}`}

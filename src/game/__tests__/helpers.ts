@@ -27,10 +27,6 @@ export function makeBoard(pieces: Array<[Position, Piece]>): Cell[] {
     return cells;
 }
 
-export function sortPos(positions: Position[]): Position[] {
-    return [...positions].sort((a, b) => a.q !== b.q ? a.q - b.q : a.r - b.r);
-}
-
 // All 91 valid cell coordinates on Glinski's board
 export function allValidCells(): Position[] {
     const result: Position[] = [];

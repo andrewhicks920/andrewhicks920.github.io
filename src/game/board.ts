@@ -60,9 +60,7 @@ export function generateBoard(): Cell[] {
 
             if (isValidCell(q, r)) {
                 const cellColor: CellColor = getCellColor(q, r);
-                const piece = null;
-
-                cells.push({q, r, cellColor, piece});
+                cells.push({q, r, cellColor, piece: null});
             }
         }
     }
@@ -144,17 +142,20 @@ export function samePos(a: Position, b: Position): boolean {
 // Converts a file letter + rank number to (q, r) coordinates.
 // file: 'a'–'l' (no 'j').  rank: 1–11.
 export function fileRankToPos(file: string, rank: number): Position {
-    const q = FILES.indexOf(file) - 5;
+    const fileIndex = FILES.indexOf(file);
+    if (import.meta.env.DEV && fileIndex === -1)
+        console.warn(`fileRankToPos: '${file}' is not a valid hex-chess file`);
+    const q = fileIndex - 5;
     const r = rank - Math.min(q, 0) - 6;
     return { q, r };
 }
 
 
 
-// FEN builds by ranks, but for hex style JAN will build by files (since ranks basically bend in our implementation)
-// 6/P5P/RP4rp/N1P3p1n/Q2P2p2q/BBB1P1p1bbb/K2P2p2k/N1P3p1n/RP4rp/P5P/6
+// JAN notation: segments separated by '/', one per file (a–l), read from rank 1 upward.
+// Uppercase letters = white, lowercase = black. Digits = consecutive empty cells.
 export function getStartingPieces(): Map<string, Piece> {
-    return parseFen('6/P5p/RP4pr/N1P3p1n/Q2P2p2q/BBB1P1p1bbb/K2P2p2k/N1P3p1n/RP4pr/P5p/6');
+    return parseJan('6/P5p/RP4pr/N1P3p1n/Q2P2p2q/BBB1P1p1bbb/K2P2p2k/N1P3p1n/RP4pr/P5p/6');
 }
 
 
@@ -163,17 +164,21 @@ const PIECE_FROM_CHAR: Record<string, PieceType> = {
 };
 
 /**
- * Parses a OAN string into a piece map.
+ * Parses a JAN string into a piece map.
  * Segments are separated by `/`, one per file (a–l), read from rank 1 upward.
- * Uppercase letters = white, lowercase = black. Digits = empty cells.
+ * Uppercase letters = white, lowercase = black. Digits = consecutive empty cells.
  *
- * @param fen - The OAN FEN string to parse
+ * @param jan - The JAN string to parse (must have exactly 11 `/`-separated segments)
  * @returns Map of position keys to pieces
  */
-export function parseFen(fen: string): Map<string, Piece> {
+export function parseJan(jan: string): Map<string, Piece> {
+    const segments = jan.split('/');
+    if (import.meta.env.DEV && segments.length !== 11)
+        console.warn(`parseJan: expected 11 segments, got ${segments.length}`);
+
     const pieces = new Map<string, Piece>();
 
-    fen.split('/').forEach((segment, i) => {
+    segments.forEach((segment, i) => {
         const q = i - 5;
         let r = Math.max(-5, -5 - q);
 

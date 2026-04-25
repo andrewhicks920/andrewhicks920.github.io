@@ -149,8 +149,8 @@
     align-items: center;
     gap: 16px;
     padding: 14px 18px;
-    background: #302e2b;
-    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: var(--color-panel-bg);
+    border: 1px solid var(--color-border-subtle);
     border-radius: 10px;
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s, transform 0.1s;
@@ -176,8 +176,8 @@
 }
 
 .mode-card--disabled:hover {
-    background: #302e2b;
-    border-color: rgba(255, 255, 255, 0.07);
+    background: var(--color-panel-bg);
+    border-color: var(--color-border-subtle);
     transform: none;
 }
 
