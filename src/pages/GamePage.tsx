@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { Board } from '../components/Board/Board.tsx';
 import { Settings } from '../components/Settings/Settings.tsx';
 import { MoveHistory } from '../components/MoveHistory/MoveHistory.tsx';
@@ -6,6 +6,7 @@ import { CapturedPieces } from '../components/CapturedPieces/CapturedPieces.tsx'
 import { TopBar } from '../components/TopBar/TopBar.tsx';
 import { BotSetup } from '../components/BotSetup/BotSetup.tsx';
 import { useGame } from '../hooks/useGame.ts';
+import { useBot } from '../hooks/useBot.ts';
 import type { Difficulty } from '../game/ai.ts';
 import { themes, type ThemeName } from '../uiConfig.ts';
 import type { Color } from '../game/types.ts';
@@ -23,14 +24,6 @@ interface GamePageProps {
 
 export function GamePage({ mode, themeName, pieceSet, onThemeChange, onPieceSetChange }: GamePageProps) {
     const [settingsOpen, setSettingsOpen] = useState(false);
-
-    // Bot-mode setup state
-    const [botReady, setBotReady] = useState(false);
-    const [playerColor, setPlayerColor] = useState<Color>('white');
-    const [difficulty, setDifficulty] = useState<Difficulty>('medium');
-
-    const botColor: Color = playerColor === 'white' ? 'black' : 'white';
-    const flipped = mode === 'bot' && playerColor === 'black';
 
     const {
         cells,
@@ -52,72 +45,26 @@ export function GamePage({ mode, themeName, pieceSet, onThemeChange, onPieceSetC
     const themeVars = themes[themeName] as Record<string, string>;
     const isGameOver = gameStatus === 'checkmate' || gameStatus === 'stalemate';
 
-    // Prevent player from clicking during the bot's turn
+    const { botReady, playerColor, botColor, flipped, isThinking, startBot, resetBot } = useBot({
+        mode,
+        cells,
+        currentTurn,
+        enPassantTarget,
+        isGameOver,
+        promotionPending,
+        executeBotMove,
+        confirmPromotion,
+    });
+
+    // Prevent player from clicking during the bot's turn.
     const wrappedHandleCellClick = useCallback((q: number, r: number) => {
         if (mode === 'bot' && botReady && currentTurn !== playerColor) return;
         handleCellClick(q, r);
     }, [mode, botReady, currentTurn, playerColor, handleCellClick]);
 
-    // Bot Web Worker — created once, lives for the lifetime of the page.
-    const workerRef = useRef<Worker | null>(null);
-    useEffect(() => {
-        const worker = new Worker(
-            new URL('../game/botWorker.ts', import.meta.url),
-            { type: 'module' },
-        );
-        workerRef.current = worker;
-        return () => { worker.terminate(); workerRef.current = null; };
-    }, []);
-
-    // Trigger bot move when it's the computer's turn.
-    // Runs the minimax search in the worker so the UI thread stays responsive.
-    useEffect(() => {
-        if (mode !== 'bot' || !botReady) return;
-        if (currentTurn !== botColor) return;
-        if (isGameOver) return;
-        if (promotionPending) return;
-
-        const worker = workerRef.current;
-        if (!worker) return;
-
-        let cancelled = false;
-
-        const handler = (e: MessageEvent) => {
-            if (cancelled) return;
-            const move = e.data;
-            if (move) executeBotMove(move.from, move.to);
-        };
-
-        // { once: true } so the listener auto-removes after the first response.
-        worker.addEventListener('message', handler, { once: true });
-
-        const timer = setTimeout(() => {
-            if (!cancelled) {
-                worker.postMessage({ cells, botColor, enPassantTarget, difficulty });
-            }
-        }, 350);
-
-        return () => {
-            cancelled = true;
-            clearTimeout(timer);
-            worker.removeEventListener('message', handler);
-        };
-    }, [mode, botReady, currentTurn, botColor, isGameOver, promotionPending, cells, enPassantTarget, difficulty, executeBotMove]);
-
-    // Auto-promote to queen for the bot
-    useEffect(() => {
-        if (mode !== 'bot' || !botReady) return;
-        if (!promotionPending) return;
-        if (currentTurn !== botColor) return;
-        confirmPromotion('queen');
-    }, [mode, botReady, promotionPending, currentTurn, botColor, confirmPromotion]);
-
-
     function handleBotStart(color: Color, diff: Difficulty) {
-        setPlayerColor(color);
-        setDifficulty(diff);
         resetGame();
-        setBotReady(true);
+        startBot(color, diff);
     }
 
     let statusMessage = '';
@@ -135,6 +82,10 @@ export function GamePage({ mode, themeName, pieceSet, onThemeChange, onPieceSetC
     else if (gameStatus === 'check') {
         statusMessage = `${currentTurn === 'white' ? 'White' : 'Black'} is in Check!`;
         statusVariant = 'check';
+    }
+    else if (mode === 'bot' && isThinking) {
+        statusMessage = 'Computer is thinking…';
+        statusVariant = 'thinking';
     }
 
     const modeLabel = mode === 'analysis' ? 'Analysis' : mode === 'bot' ? 'vs Computer' : mode === 'online' ? 'Online' : 'Local';
@@ -196,7 +147,7 @@ export function GamePage({ mode, themeName, pieceSet, onThemeChange, onPieceSetC
                     )}
                     <button className="new-game-btn" onClick={() => {
                         resetGame();
-                        if (mode === 'bot') setBotReady(false);
+                        if (mode === 'bot') resetBot();
                     }}>
                         + New Game
                     </button>

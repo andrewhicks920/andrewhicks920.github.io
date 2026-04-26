@@ -73,23 +73,36 @@ function buildNotation(
         // All origins that can reach `to`, including the moving piece
         const allOrigins: Position[] = [from, ...ambiguousOrigins];
 
-        // Step 1: is the source file unique among all origins?
+        // Is the source file unique among all origins?
         const sameFileCount = allOrigins.filter(p => p.q === from.q).length;
         if (sameFileCount === 1) {
             disambiguation = fromFile;
-        } else {
-            // Step 2: is the source rank unique?
+        }
+        else {
+            // Is the source rank unique?
             const sameRankCount = allOrigins.filter(p => rankOf(p) === fromRank).length;
-            if (sameRankCount === 1) {
+            if (sameRankCount === 1)
                 disambiguation = String(fromRank);
-            } else {
-                // Step 3: full coordinate
+
+            else // Step 3: full coordinate
                 disambiguation = `${fromFile}${fromRank}`;
-            }
         }
     }
 
     return `${PIECE_LETTERS[piece.type]}${disambiguation}${capSym}${toFile}${toRank}${checkSym}`;
+}
+
+function findCapture(cells: Cell[], to: Position, enPassantTarget: Position | null, movingColor: Color,): Piece | null {
+    const normal = cells.find(c => samePos(c, to))?.piece ?? null;
+
+    if (normal)
+        return normal;
+
+    if (!enPassantTarget || !samePos(to, enPassantTarget))
+        return null;
+
+    const epCapR = enPassantTarget.r + (movingColor === 'white' ? -1 : 1);
+    return cells.find(c => c.q === enPassantTarget.q && c.r === epCapR)?.piece ?? null;
 }
 
 function addToHistory(prev: MoveRecord[], color: Color, notation: string): MoveRecord[] {
@@ -123,25 +136,13 @@ export function useGame() {
         if (!movingPiece) return;
 
         const newEnPassantTarget = computeEnPassantTarget(from, to, movingPiece);
-
-        const normalCapture = cells.find(c => samePos(c, to))?.piece ?? null;
-        const epCapR = enPassantTarget
-            ? enPassantTarget.r + (movingPiece.color === 'white' ? -1 : 1)
-            : null;
-        const epCapture =
-            enPassantTarget && samePos(to, enPassantTarget) && epCapR !== null
-                ? cells.find(c => c.q === enPassantTarget.q && c.r === epCapR)?.piece ?? null
-                : null;
-        const captured = normalCapture ?? epCapture;
+        const captured = findCapture(cells, to, enPassantTarget, movingPiece.color);
 
         if (captured) {
-            if (movingPiece.color === 'white')
-                setCapturedByWhite(prev => [...prev, captured]);
-            else
-                setCapturedByBlack(prev => [...prev, captured]);
+            if (movingPiece.color === 'white') setCapturedByWhite(prev => [...prev, captured]);
+            else setCapturedByBlack(prev => [...prev, captured]);
         }
 
-        const preMoveBoard = cells;
         const newCells = applyMove(cells, from, to, enPassantTarget, movingPiece.color);
         const nextTurn = oppositeColor(currentTurn);
         const isPromotion = movingPiece.type === 'pawn' && isPromotionSquare(to.q, to.r, movingPiece.color);
@@ -153,17 +154,11 @@ export function useGame() {
 
         if (isPromotion) {
             // Defer writing to move history until the piece is chosen — no '=?' sentinel needed.
-            const baseNotation = buildNotation(
-                movingPiece, from, to, !!captured, '',
-                preMoveBoard, enPassantTarget,
-            );
+            const baseNotation = buildNotation(movingPiece, from, to, !!captured, '', cells, enPassantTarget);
             setPendingPromotion({ pos: to, baseNotation, color: movingPiece.color });
         } else {
             const nextStatus = getGameStatus(newCells, nextTurn, newEnPassantTarget);
-            const notation = buildNotation(
-                movingPiece, from, to, !!captured, nextStatus,
-                preMoveBoard, enPassantTarget,
-            );
+            const notation = buildNotation(movingPiece, from, to, !!captured, nextStatus, cells, enPassantTarget);
             setMoveHistory(prev => addToHistory(prev, movingPiece.color, notation));
             setCurrentTurn(nextTurn);
             setGameStatus(nextStatus);
