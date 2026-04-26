@@ -23,3 +23,13 @@ export const NAV_ICONS = {
     puzzles:  '\u03DE',
     settings: '\u03F7',
 } as const;
+
+/*
+From Wikipedia's Hex Chess Board:
+You'll notice the colors don't really match up with their labels — sue me
+
+light: #e8ab6f
+mid:   #d18b47
+dark:  #ffce9e
+
+ */
