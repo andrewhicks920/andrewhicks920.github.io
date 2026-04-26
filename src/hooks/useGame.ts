@@ -101,8 +101,8 @@ function findCapture(cells: Cell[], to: Position, enPassantTarget: Position | nu
     if (!enPassantTarget || !samePos(to, enPassantTarget))
         return null;
 
-    const epCapR = enPassantTarget.r + (movingColor === 'white' ? -1 : 1);
-    return cells.find(c => c.q === enPassantTarget.q && c.r === epCapR)?.piece ?? null;
+    const epCapturedR = enPassantTarget.r + (movingColor === 'white' ? -1 : 1);
+    return cells.find(c => c.q === enPassantTarget.q && c.r === epCapturedR)?.piece ?? null;
 }
 
 function addToHistory(prev: MoveRecord[], color: Color, notation: string): MoveRecord[] {

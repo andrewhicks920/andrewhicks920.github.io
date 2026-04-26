@@ -15,8 +15,8 @@ function App() {
         onPieceSetChange: setPieceSet,
     };
 
-    // When online mode is implemented, we can put this route back:
-    // <Route path="/play/online" element={<GamePage mode="online" {...sharedProps} />} />
+    // TODO: When online mode is implemented, we can put this route back:
+    // TODO: <Route path="/play/online" element={<GamePage mode="online" {...sharedProps} />} />
     return (
         <Routes>
             <Route path="/" element={<LandingPage {...sharedProps} />} />

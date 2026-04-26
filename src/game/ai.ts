@@ -59,6 +59,17 @@ function simulateMove(cells: Cell[], move: Move, enPassantTarget: Position | nul
     return next;
 }
 
+/**
+ * MVV-LVA score for move ordering: captures are searched first, prioritising
+ * high-value victims captured by low-value attackers, so alpha-beta cuts off more branches.
+ */
+function scoreMove(cells: Cell[], move: Move): number {
+    const victim = cells.find(c => c.q === move.to.q && c.r === move.to.r)?.piece;
+    if (!victim) return 0;
+    const attacker = cells.find(c => c.q === move.from.q && c.r === move.from.r)?.piece;
+    return PIECE_VALUES[victim.type] - (attacker ? PIECE_VALUES[attacker.type] * 0.1 : 0);
+}
+
 /** Returns every legal move available to `color` in the given position. */
 function getAllMoves(cells: Cell[], color: Color, enPassantTarget: Position | null): Move[] {
     const moves: Move[] = [];
@@ -100,7 +111,8 @@ function minimax(
     if (status === 'stalemate') return maximizing ? -7500 : 7500; // Stalemate return 3/4 of a point to the 'winner'
     if (depth === 0) return evaluate(cells, botColor);
 
-    const moves = getAllMoves(cells, sideToMove, enPassantTarget);
+    const moves = getAllMoves(cells, sideToMove, enPassantTarget)
+        .sort((a, b) => scoreMove(cells, b) - scoreMove(cells, a));
 
     if (maximizing) {
         let best = -Infinity;

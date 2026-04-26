@@ -37,13 +37,13 @@ function cellAt(cellMap: Map<string, Cell>, q: number, r: number): Cell | undefi
 }
 
 /**
- * Walks one ray in direction `(dq, dr)` from `from`, collecting squares until
+ * Walks one ray in direction `(deltaQ, deltaR)` from `from`, collecting squares until
  * the board edge, a friendly piece (exclusive), or an enemy piece (inclusive capture).
  */
-function slide(cellMap: Map<string, Cell>, from: Position, dq: number, dr: number, color: Color): Position[] {
+function slide(cellMap: Map<string, Cell>, from: Position, deltaQ: number, deltaR: number, color: Color): Position[] {
     const moves: Position[] = [];
-    let q = from.q + dq;
-    let r = from.r + dr;
+    let q = from.q + deltaQ;
+    let r = from.r + deltaR;
 
     while (isValidCell(q, r)) {
         const occupant = cellAt(cellMap, q, r)?.piece;
@@ -55,8 +55,8 @@ function slide(cellMap: Map<string, Cell>, from: Position, dq: number, dr: numbe
         }
 
         moves.push({ q, r });
-        q += dq;
-        r += dr;
+        q += deltaQ;
+        r += deltaR;
     }
 
     return moves;
@@ -64,12 +64,12 @@ function slide(cellMap: Map<string, Cell>, from: Position, dq: number, dr: numbe
 
 /** All squares reachable by a rook at `pos` (slides along the three orthogonal axes). */
 function rookMoves(cellMap: Map<string, Cell>, pos: Position, color: Color): Position[] {
-    return ROOK_DIRS.flatMap(([dq, dr]) => slide(cellMap, pos, dq, dr, color));
+    return ROOK_DIRS.flatMap(([deltaQ, deltaR]) => slide(cellMap, pos, deltaQ, deltaR, color));
 }
 
 /** All squares reachable by a bishop at `pos` (slides along the six diagonal axes). */
 function bishopMoves(cellMap: Map<string, Cell>, pos: Position, color: Color): Position[] {
-    return BISHOP_DIRS.flatMap(([dq, dr]) => slide(cellMap, pos, dq, dr, color));
+    return BISHOP_DIRS.flatMap(([deltaQ, deltaR]) => slide(cellMap, pos, deltaQ, deltaR, color));
 }
 
 /** All squares reachable by a queen at `pos` (union of rook and bishop moves). */
@@ -80,9 +80,9 @@ function queenMoves(cellMap: Map<string, Cell>, pos: Position, color: Color): Po
 /** All squares reachable by a king at `pos` (one step in any of the 12 adjacent directions). */
 function kingMoves(cellMap: Map<string, Cell>, pos: Position, color: Color): Position[] {
     const moves: Position[] = [];
-    for (const [dq, dr] of KING_DIRS) {
-        const q = pos.q + dq;
-        const r = pos.r + dr;
+    for (const [deltaQ, deltaR] of KING_DIRS) {
+        const q = pos.q + deltaQ;
+        const r = pos.r + deltaR;
         if (!isValidCell(q, r)) continue;
         const occupant = cellAt(cellMap, q, r)?.piece;
         if (occupant?.color === color) continue; // own piece blocks
@@ -94,9 +94,9 @@ function kingMoves(cellMap: Map<string, Cell>, pos: Position, color: Color): Pos
 /** All squares reachable by a knight at `pos` (12 fixed L-shaped jumps). */
 function knightMoves(cellMap: Map<string, Cell>, pos: Position, color: Color): Position[] {
     const moves: Position[] = [];
-    for (const [dq, dr] of KNIGHT_MOVES) {
-        const q = pos.q + dq;
-        const r = pos.r + dr;
+    for (const [deltaQ, deltaR] of KNIGHT_MOVES) {
+        const q = pos.q + deltaQ;
+        const r = pos.r + deltaR;
         if (!isValidCell(q, r)) continue;
         const occupant = cellAt(cellMap, q, r)?.piece;
         if (occupant?.color === color) continue;
@@ -117,17 +117,17 @@ function knightMoves(cellMap: Map<string, Cell>, pos: Position, color: Color): P
 function pawnMoves(cellMap: Map<string, Cell>, pos: Position, color: Color, enPassantTarget: Position | null): Position[] {
     const moves: Position[] = [];
     const { q, r } = pos;
-    const dr = color === 'white' ? 1 : -1;
+    const forward = color === 'white' ? 1 : -1;
 
     // Straight — non-capturing
-    const oneAhead = cellAt(cellMap, q, r + dr);
+    const oneAhead = cellAt(cellMap, q, r + forward);
     if (oneAhead && !oneAhead.piece) {
-        moves.push({ q, r: r + dr });
+        moves.push({ q, r: r + forward });
 
         if (isOnStartingRank(q, r, color)) {
-            const twoAhead = cellAt(cellMap, q, r + 2 * dr);
+            const twoAhead = cellAt(cellMap, q, r + 2 * forward);
             if (twoAhead && !twoAhead.piece)
-                moves.push({ q, r: r + 2 * dr });
+                moves.push({ q, r: r + 2 * forward });
         }
     }
 
@@ -137,8 +137,8 @@ function pawnMoves(cellMap: Map<string, Cell>, pos: Position, color: Color, enPa
             ? [[ 1,  0], [-1,  1]]
             : [[-1,  0], [ 1, -1]];
 
-    for (const [dq, dCapR] of captureDirs) {
-        const tq = q + dq;
+    for (const [deltaQ, dCapR] of captureDirs) {
+        const tq = q + deltaQ;
         const tr = r + dCapR;
         if (!isValidCell(tq, tr)) continue;
 

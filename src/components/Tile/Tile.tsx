@@ -35,7 +35,7 @@ export function HexTileFill({ cell, x, y, size, isSelected, isHighlight, isCheck
             {isCheck && (
                 <polygon
                     points={points}
-                    fill="rgba(220, 0, 0, 0.5)"
+                    fill="var(--highlight-check)"
                     style={{ pointerEvents: 'none' }}
                 />
             )}
@@ -43,7 +43,7 @@ export function HexTileFill({ cell, x, y, size, isSelected, isHighlight, isCheck
             {(isSelected || isHighlight) && (
                 <polygon
                     points={points}
-                    fill={isSelected ? 'rgba(255, 255, 0, 0.45)' : 'rgba(0, 200, 0, 0.45)'}
+                    fill={isSelected ? 'var(--highlight-selected)' : 'var(--highlight-move)'}
                     style={{ pointerEvents: 'none' }}
                 />
             )}
