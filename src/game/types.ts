@@ -16,33 +16,51 @@
  * Diagonal (Bishop-like): Move through a shared vertex (two coords change).
  */
 
+/** Side that owns a piece or takes a turn. */
 export type Color = 'white' | 'black';
+
+/** All piece types present in Glinski's hexagonal chess. */
 export type PieceType = 'king' | 'queen' | 'rook' | 'bishop' | 'knight' | 'pawn';
+
+/**
+ * Visual shading of a hex tile.
+ * Determined by `(q − r) mod 3` so that bishops are always confined to one shade.
+ */
 export type CellColor = 'light' | 'mid' | 'dark';
 
+/** A chess piece with its type and owning side. */
 export interface Piece {
   type: PieceType;
   color: Color;
 }
 
+/**
+ * Axial coordinates on the hex grid.
+ * The implicit third cube coordinate is `s = −q − r`.
+ */
 export interface Position {
   q: number;
   r: number;
 }
 
+/** A single hex tile: its grid coordinates, visual shading, and optional occupant. */
 export interface Cell {
   q: number;
   r: number;
-  cellColor: CellColor; // visual color of the hex tile
-  piece: Piece | null;  // whichever piece sits here, or null if empty
+  /** Visual shading of the hex tile. */
+  cellColor: CellColor;
+  /** Piece occupying this cell, or `null` if empty. */
+  piece: Piece | null;
 }
 
+/** One entry in the move history list, pairing white and black half-moves by move number. */
 export interface MoveRecord {
   moveNumber: number;
   white?: string;
   black?: string;
 }
 
+/** Returns the opponent of `color`. */
 export function oppositeColor(color: Color): Color {
     return color === 'white' ? 'black' : 'white';
 }

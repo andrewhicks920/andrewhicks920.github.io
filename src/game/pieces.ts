@@ -1,21 +1,24 @@
 import {type Cell, type Color, type Position} from './types';
 import {buildCellMap, isValidCell} from './board';
 
-// Rook — slides along 3 axes (6 directions)
+/** Six orthogonal directions for a rook — one per shared hex edge, along the q, r, and s axes. */
 export const ROOK_DIRS: [number, number][] = [
     [ 0,  1], [ 0, -1],  // along r
     [ 1,  0], [-1,  0],  // along q
     [ 1, -1], [-1,  1],  // along s (−q−r)
 ];
 
-// Bishop — slides through shared vertices (6 directions)
+/** Six diagonal directions for a bishop — through shared hex vertices (two cube coords change). */
 export const BISHOP_DIRS: [number, number][] = [
     [ 1,  1], [-1, -1],
     [ 2, -1], [-2,  1],
     [ 1, -2], [-1,  2],
 ];
 
-// Knight — 12 fixed jumps (1 rook step + 1 bishop step, non-parallel axis)
+/**
+ * 12 fixed knight jumps: one rook step followed by one bishop step on a non-parallel axis.
+ * Glinski's hex knight has 12 possible destinations (vs. 8 on a square board).
+ */
 export const KNIGHT_MOVES: [number, number][] = [
     [ 3, -1], [-3,  1],
     [ 2,  1], [-2, -1],
@@ -25,13 +28,18 @@ export const KNIGHT_MOVES: [number, number][] = [
     [ 2, -3], [-2,  3],
 ];
 
+/** All 12 adjacent directions for a king — union of rook and bishop directions. */
 export const KING_DIRS: [number, number][] = [...ROOK_DIRS, ...BISHOP_DIRS];
 
+/** Retrieves a cell from a pre-built map by its axial coordinates. */
 function cellAt(cellMap: Map<string, Cell>, q: number, r: number): Cell | undefined {
     return cellMap.get(`${q},${r}`);
 }
 
-// Walk one ray until the board edge, a friendly piece, or a capture.
+/**
+ * Walks one ray in direction `(dq, dr)` from `from`, collecting squares until
+ * the board edge, a friendly piece (exclusive), or an enemy piece (inclusive capture).
+ */
 function slide(cellMap: Map<string, Cell>, from: Position, dq: number, dr: number, color: Color): Position[] {
     const moves: Position[] = [];
     let q = from.q + dq;
@@ -54,18 +62,22 @@ function slide(cellMap: Map<string, Cell>, from: Position, dq: number, dr: numbe
     return moves;
 }
 
+/** All squares reachable by a rook at `pos` (slides along the three orthogonal axes). */
 function rookMoves(cellMap: Map<string, Cell>, pos: Position, color: Color): Position[] {
     return ROOK_DIRS.flatMap(([dq, dr]) => slide(cellMap, pos, dq, dr, color));
 }
 
+/** All squares reachable by a bishop at `pos` (slides along the six diagonal axes). */
 function bishopMoves(cellMap: Map<string, Cell>, pos: Position, color: Color): Position[] {
     return BISHOP_DIRS.flatMap(([dq, dr]) => slide(cellMap, pos, dq, dr, color));
 }
 
+/** All squares reachable by a queen at `pos` (union of rook and bishop moves). */
 function queenMoves(cellMap: Map<string, Cell>, pos: Position, color: Color): Position[] {
     return [...rookMoves(cellMap, pos, color), ...bishopMoves(cellMap, pos, color)];
 }
 
+/** All squares reachable by a king at `pos` (one step in any of the 12 adjacent directions). */
 function kingMoves(cellMap: Map<string, Cell>, pos: Position, color: Color): Position[] {
     const moves: Position[] = [];
     for (const [dq, dr] of KING_DIRS) {
@@ -79,6 +91,7 @@ function kingMoves(cellMap: Map<string, Cell>, pos: Position, color: Color): Pos
     return moves;
 }
 
+/** All squares reachable by a knight at `pos` (12 fixed L-shaped jumps). */
 function knightMoves(cellMap: Map<string, Cell>, pos: Position, color: Color): Position[] {
     const moves: Position[] = [];
     for (const [dq, dr] of KNIGHT_MOVES) {
@@ -92,8 +105,15 @@ function knightMoves(cellMap: Map<string, Cell>, pos: Position, color: Color): P
     return moves;
 }
 
-// White moves visually upward: straight (0,+1), captures (+1,0) and (−1,+1)
-// Black moves visually downward: straight (0,−1), captures (−1,0) and (+1,−1)
+/**
+ * All squares reachable by a pawn at `pos`, including en-passant captures.
+ *
+ * White moves upward: pushes along `(0,+1)`, captures along `(+1,0)` and `(−1,+1)`.
+ * Black moves downward: pushes along `(0,−1)`, captures along `(−1,0)` and `(+1,−1)`.
+ * A double-push is allowed only from the pawn's starting rank.
+ *
+ * @param enPassantTarget - The square a capturing pawn would land on, or `null`.
+ */
 function pawnMoves(cellMap: Map<string, Cell>, pos: Position, color: Color, enPassantTarget: Position | null): Position[] {
     const moves: Position[] = [];
     const { q, r } = pos;
@@ -132,8 +152,12 @@ function pawnMoves(cellMap: Map<string, Cell>, pos: Position, color: Color, enPa
     return moves;
 }
 
-// White starting r: −(max(q,0) + 1)  →  verified against all 9 pawn positions ✓
-// Black starting r:  max(1 − q, 1)   →  verified against all 9 pawn positions ✓
+/**
+ * Returns `true` when the pawn at `(q, r)` is on its starting rank and eligible for a double-push.
+ *
+ * White starting r: `−(max(q, 0) + 1)` — verified against all 9 pawn starting positions.
+ * Black starting r: `max(1 − q, 1)`    — verified against all 9 pawn starting positions.
+ */
 function isOnStartingRank(q: number, r: number, color: Color): boolean {
     if (color === 'white') return r === -(Math.max(q, 0) + 1);
     return r === Math.max(1 - q, 1);

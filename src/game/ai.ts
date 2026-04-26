@@ -2,22 +2,32 @@ import { type Cell, type Color, type Position, type PieceType, oppositeColor } f
 import { getLegalMoves, getGameStatus, isPromotionSquare } from './gameLogic';
 import { applyMove, computeEnPassantTarget } from './board';
 
+/** Bot difficulty level, mapped to minimax search depth. */
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
+/**
+ * Static piece values (in pawn units) used by the evaluation function.
+ * King's value is deliberately large to dominate the score in checkmate positions.
+ */
 const PIECE_VALUES: Record<PieceType, number> = {
-    pawn: 100,
-    knight: 300,
-    bishop: 350,
-    rook: 500,
-    queen: 1000,
-    king: 100000,
+    pawn: 1,
+    knight: 3,
+    bishop: 3.5,
+    rook: 5,
+    queen: 9,
+    king: 100,
 };
 
+/** A from–to pair representing a single half-move. */
 interface Move {
     from: Position;
     to: Position;
 }
 
+/**
+ * Static material evaluation relative to `color`.
+ * Returns the sum of `color`'s piece values minus the opponent's.
+ */
 function evaluate(cells: Cell[], color: Color): number {
     let score = 0;
     for (const cell of cells) {
@@ -49,6 +59,7 @@ function simulateMove(cells: Cell[], move: Move, enPassantTarget: Position | nul
     return next;
 }
 
+/** Returns every legal move available to `color` in the given position. */
 function getAllMoves(cells: Cell[], color: Color, enPassantTarget: Position | null): Move[] {
     const moves: Move[] = [];
     for (const cell of cells) {
@@ -61,6 +72,18 @@ function getAllMoves(cells: Cell[], color: Color, enPassantTarget: Position | nu
     return moves;
 }
 
+/**
+ * Alpha-beta minimax search.
+ *
+ * @param cells - Board state at this node of the search tree.
+ * @param depth - Remaining plies to search; returns the static evaluation at 0.
+ * @param alpha - Lower bound for the maximizing player (best already found).
+ * @param beta  - Upper bound for the minimizing player (best already found).
+ * @param maximizing - `true` when it is the bot's turn to move.
+ * @param botColor - The side the bot is playing; scores are always relative to this color.
+ * @param enPassantTarget - En-passant target square available to the side to move at this node, or `null`.
+ * @returns The heuristic value of `cells` from `botColor`'s perspective.
+ */
 function minimax(
     cells: Cell[],
     depth: number,
@@ -73,8 +96,8 @@ function minimax(
     const sideToMove: Color = maximizing ? botColor : oppositeColor(botColor);
     const status = getGameStatus(cells, sideToMove, enPassantTarget);
 
-    if (status === 'checkmate') return maximizing ? -1_000_000 : 1_000_000;
-    if (status === 'stalemate') return maximizing ? -750_000 : 750_000;
+    if (status === 'checkmate') return maximizing ? -10_000 : 10_000;
+    if (status === 'stalemate') return maximizing ? -7500 : 7500; // Stalemate return 3/4 of a point to the 'winner'
     if (depth === 0) return evaluate(cells, botColor);
 
     const moves = getAllMoves(cells, sideToMove, enPassantTarget);
@@ -103,8 +126,15 @@ function minimax(
     }
 }
 
+/** Minimax search depth for each difficulty level. */
 const DEPTH: Record<Difficulty, number> = { easy: 1, medium: 2, hard: 3 };
 
+/**
+ * Selects the best move for the bot using alpha-beta minimax.
+ * On `'easy'` difficulty a random legal move is returned instead of a search.
+ *
+ * @returns The chosen `Move`, or `null` if the bot has no legal moves.
+ */
 export function getBotMove(cells: Cell[], botColor: Color, enPassantTarget: Position | null, difficulty: Difficulty,): Move | null {
     const moves = getAllMoves(cells, botColor, enPassantTarget);
     if (moves.length === 0) return null;

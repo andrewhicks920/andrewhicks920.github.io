@@ -2,6 +2,7 @@ import { type Cell, type Color, type Position, oppositeColor } from './types';
 import { samePos, applyMove, buildCellMap, isValidCell } from './board';
 import { getPseudoLegalMoves, ROOK_DIRS, BISHOP_DIRS, KNIGHT_MOVES, KING_DIRS } from './pieces';
 
+/** Returns the position of `color`'s king, or `null` if the king is not on the board. */
 function findKing(cells: Cell[], color: Color): Position | null {
     const cell = cells.find(c => c.piece?.type === 'king' && c.piece.color === color);
     return cell ? { q: cell.q, r: cell.r } : null;
@@ -77,12 +78,13 @@ export function isInCheck(cells: Cell[], color: Color): boolean {
     return false;
 }
 
-/** Legal moves for the piece at `pos` — pseudo-legal filtered by king safety. */
-export function getLegalMoves(
-    cells: Cell[],
-    pos: Position,
-    enPassantTarget: Position | null,
-): Position[] {
+/**
+ * Returns all fully legal moves for the piece at `pos`.
+ * Filters pseudo-legal moves by simulating each one and rejecting any that leave `color`'s king in check.
+ *
+ * @param enPassantTarget - Landing square for a possible en-passant capture, or `null`.
+ */
+export function getLegalMoves(cells: Cell[], pos: Position, enPassantTarget: Position | null,): Position[] {
     const cell = cells.find(c => samePos(c, pos));
     if (!cell?.piece) return [];
 
@@ -93,12 +95,11 @@ export function getLegalMoves(
     });
 }
 
-/** True if `color` has at least one legal move available. */
-export function hasAnyLegalMove(
-    cells: Cell[],
-    color: Color,
-    enPassantTarget: Position | null,
-): boolean {
+/**
+ * Returns `true` if `color` has at least one legal move available.
+ * Used to distinguish checkmate from stalemate.
+ */
+export function hasAnyLegalMove(cells: Cell[], color: Color, enPassantTarget: Position | null,): boolean {
     for (const cell of cells) {
         if (cell.piece?.color !== color) continue;
         if (getLegalMoves(cells, { q: cell.q, r: cell.r }, enPassantTarget).length > 0)
@@ -107,8 +108,15 @@ export function hasAnyLegalMove(
     return false;
 }
 
-export function getGameStatus(
-    cells: Cell[],
+/**
+ * Returns the game status from `currentTurn`'s perspective.
+ *
+ * - `'playing'`   — normal position, moves available.
+ * - `'check'`     — king is attacked but the player has legal replies.
+ * - `'checkmate'` — king is attacked with no legal moves.
+ * - `'stalemate'` — king is not attacked but no legal moves exist.
+ */
+export function getGameStatus(cells: Cell[],
     currentTurn: Color,
     enPassantTarget: Position | null,
 ): 'playing' | 'check' | 'checkmate' | 'stalemate' {
