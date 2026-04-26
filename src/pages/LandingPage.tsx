@@ -15,13 +15,13 @@ import queenImg  from '../assets/carouselImages/Glinski_Chess_Queen.svg';
 import kingImg   from '../assets/carouselImages/Glinski_Chess_King.svg';
 
 const SLIDES = [
-    { src: boardImg,  label: 'Board' },
-    { src: pawnImg,   label: 'Pawn'   },
-    { src: knightImg, label: 'Knight' },
-    { src: bishopImg, label: 'Bishop' },
-    { src: rookImg,   label: 'Rook'   },
-    { src: queenImg,  label: 'Queen'  },
-    { src: kingImg,   label: 'King'   },
+    { src: boardImg,  label: 'Starting Position' },
+    { src: pawnImg,   label: 'Pawn: \nCaptures (×), \nWhite Promotion Tiles (★)'},
+    { src: knightImg, label: 'Knight Moves'},
+    { src: bishopImg, label: 'Bishop Moves'},
+    { src: rookImg,   label: 'Rook Moves'},
+    { src: queenImg,  label: 'Queen Moves'},
+    { src: kingImg,   label: 'King Moves'},
 ] as const;
 
 const SLIDE_INTERVAL = 3500;
