@@ -15,12 +15,14 @@ function App() {
         onPieceSetChange: setPieceSet,
     };
 
+    // When online mode is implemented, we can put this route back:
+    // <Route path="/play/online" element={<GamePage mode="online" {...sharedProps} />} />
     return (
         <Routes>
             <Route path="/" element={<LandingPage {...sharedProps} />} />
             <Route path="/play/local" element={<GamePage mode="local" {...sharedProps} />} />
             <Route path="/play/bot" element={<GamePage mode="bot" {...sharedProps} />} />
-            <Route path="/play/online" element={<GamePage mode="online" {...sharedProps} />} />
+
             <Route path="/analysis" element={<GamePage mode="analysis" {...sharedProps} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

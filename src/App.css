@@ -104,8 +104,6 @@
     font-size: 0.82rem;
     font-weight: 600;
     padding: 11px 14px;
-    cursor: pointer;
-    transition: color 0.15s, border-color 0.15s;
     font-family: inherit;
     letter-spacing: 0.03em;
     text-transform: uppercase;
@@ -135,15 +133,7 @@
     color: #e8e3de;
 }
 
-.status-message--check {
-    background: rgba(200, 40, 40, 0.25);
-    color: #ff8a8a;
-}
 
-.status-message--gameover {
-    background: rgba(129, 182, 76, 0.18);
-    color: #81b64c;
-}
 
 .new-game-btn {
     background: #81b64c;

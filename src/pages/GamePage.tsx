@@ -186,8 +186,8 @@ export function GamePage({ mode, themeName, pieceSet, onThemeChange, onPieceSetC
 
             <aside className="right-panel">
                 <div className="right-panel-tabs">
-                    <button className="panel-tab panel-tab--active">{modeLabel}</button>
-                    <button className="panel-tab panel-tab--active" style={{ marginLeft: 'auto', borderBottomColor: 'transparent', color: '#9a9998' }}>Moves</button>
+                    <span className="panel-tab panel-tab--active">{modeLabel}</span>
+                    <span className="panel-tab panel-tab--active" style={{ marginLeft: 'auto', borderBottomColor: 'transparent', color: '#9a9998' }}>Moves</span>
                 </div>
                 <MoveHistory moves={moveHistory} />
                 <div className="panel-controls">

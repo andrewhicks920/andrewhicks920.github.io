@@ -74,7 +74,7 @@ function minimax(
     const status = getGameStatus(cells, sideToMove, enPassantTarget);
 
     if (status === 'checkmate') return maximizing ? -1_000_000 : 1_000_000;
-    if (status === 'stalemate') return 0;
+    if (status === 'stalemate') return maximizing ? -750_000 : 750_000;
     if (depth === 0) return evaluate(cells, botColor);
 
     const moves = getAllMoves(cells, sideToMove, enPassantTarget);
@@ -105,18 +105,12 @@ function minimax(
 
 const DEPTH: Record<Difficulty, number> = { easy: 1, medium: 2, hard: 3 };
 
-export function getBotMove(
-    cells: Cell[],
-    botColor: Color,
-    enPassantTarget: Position | null,
-    difficulty: Difficulty,
-): Move | null {
+export function getBotMove(cells: Cell[], botColor: Color, enPassantTarget: Position | null, difficulty: Difficulty,): Move | null {
     const moves = getAllMoves(cells, botColor, enPassantTarget);
     if (moves.length === 0) return null;
 
-    if (difficulty === 'easy') {
+    if (difficulty === 'easy')
         return moves[Math.floor(Math.random() * moves.length)];
-    }
 
     const depth = DEPTH[difficulty];
     let bestMove: Move | null = null;
