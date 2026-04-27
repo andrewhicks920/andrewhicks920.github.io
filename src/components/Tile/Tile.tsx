@@ -14,13 +14,14 @@ interface HexTileFillProps {
     isHighlight: boolean;
     isCheck: boolean;
     isClickable: boolean;
+    isFocused: boolean;
     handleCellClick: (q: number, r: number) => void;
     pieceSet: string;
     flipped?: boolean;
 }
 
 
-export const HexTileFill = memo(function HexTileFill({ cell, x, y, size, isSelected, isHighlight, isCheck, isClickable, handleCellClick, pieceSet, flipped }: HexTileFillProps) {
+export const HexTileFill = memo(function HexTileFill({ cell, x, y, size, isSelected, isHighlight, isCheck, isClickable, isFocused, handleCellClick, pieceSet, flipped }: HexTileFillProps) {
     const points = hexPoints(x, y, size);
 
     return (
@@ -45,6 +46,17 @@ export const HexTileFill = memo(function HexTileFill({ cell, x, y, size, isSelec
                 <polygon
                     points={points}
                     fill={isSelected ? 'var(--highlight-selected)' : 'var(--highlight-move)'}
+                    style={{ pointerEvents: 'none' }}
+                />
+            )}
+
+            {isFocused && (
+                <polygon
+                    points={points}
+                    fill="none"
+                    stroke="white"
+                    strokeWidth={3}
+                    strokeDasharray="5 3"
                     style={{ pointerEvents: 'none' }}
                 />
             )}

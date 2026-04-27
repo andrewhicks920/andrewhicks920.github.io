@@ -1,17 +1,17 @@
 import { useState, useCallback, useRef } from 'react';
-import { type Cell, type Color, type Piece, type PieceType, type Position, type MoveRecord, oppositeColor } from '../game/types';
-import { generateBoard, samePos, applyMove, computeEnPassantTarget, FILES, posKey, parseJan } from '../game/board';
+import { type Cell, type Color, type Piece, type Position, type MoveRecord, oppositeColor } from '../game/types';
+import { generateBoard, samePos, applyMove, computeEnPassantTarget, posKey, parseJan } from '../game/board';
 import { getLegalMoves, getGameStatus, isPromotionSquare } from '../game/gameLogic';
+import {
+    buildNotation,
+    addToHistory,
+    parseSanToken,
+    PROMO_LETTERS,
+    type PromoPieceType,
+} from '../game/notation';
 
-const PIECE_LETTERS: Record<PieceType, string> = {
-    king: 'K', queen: 'Q', rook: 'R', bishop: 'B', knight: 'N', pawn: '',
-};
-
-export type PromoPieceType = 'queen' | 'rook' | 'bishop' | 'knight';
-
-const PROMO_LETTERS: Record<PromoPieceType, string> = {
-    queen: 'Q', rook: 'R', bishop: 'B', knight: 'N',
-};
+// Re-export so consumers (useBot, Board) don't need to change their import sites.
+export type { PromoPieceType };
 
 /** Tracks a pawn promotion that is waiting for the player to pick a piece. */
 interface PendingPromotion {
@@ -32,189 +32,12 @@ interface GameSnapshot {
     pendingPromotion: PendingPromotion | null;
 }
 
-function fileOf(pos: Position): string { return FILES[pos.q + 5] ?? '?'; }
-function rankOf(pos: Position): number { return pos.q + pos.r + 6; }
-
-/**
- * Builds SAN-style notation with proper disambiguation.
- *
- * Disambiguation rules (applied when multiple same-type pieces can reach `to`):
- *   1. Use source file if it uniquely identifies the piece.
- *   2. Else use source rank.
- *   3. Else use full source coordinate.
- *
- * Pawn captures always include the source file (standard SAN).
- */
-function buildNotation(
-    piece: Piece,
-    from: Position,
-    to: Position,
-    captured: boolean,
-    status: string,
-    boardCells: Cell[],
-    enPassantTarget: Position | null,
-): string {
-    const toFile = fileOf(to);
-    const toRank = rankOf(to);
-    const fromFile = fileOf(from);
-    const fromRank = rankOf(from);
-    const capSym = captured ? 'x' : '';
-    const checkSym = status === 'checkmate' ? '#' : status === 'check' ? '+' : '';
-
-    // Pawns: capture includes source file, moves omit piece letter
-    if (piece.type === 'pawn') {
-        if (captured) return `${fromFile}x${toFile}${toRank}${checkSym}`;
-        return `${toFile}${toRank}${checkSym}`;
-    }
-
-    // Find all other same-type/color pieces that can also legally reach `to`
-    const ambiguousOrigins: Position[] = boardCells
-        .filter(c =>
-            c.piece?.type === piece.type &&
-            c.piece?.color === piece.color &&
-            !(c.q === from.q && c.r === from.r),
-        )
-        .filter(c => getLegalMoves(boardCells, { q: c.q, r: c.r }, enPassantTarget)
-            .some(m => m.q === to.q && m.r === to.r),
-        )
-        .map(c => ({ q: c.q, r: c.r }));
-
-    let disambiguation = '';
-
-    if (ambiguousOrigins.length > 0) {
-        // All origins that can reach `to`, including the moving piece
-        const allOrigins: Position[] = [from, ...ambiguousOrigins];
-
-        // Is the source file unique among all origins?
-        const sameFileCount = allOrigins.filter(p => p.q === from.q).length;
-        if (sameFileCount === 1) {
-            disambiguation = fromFile;
-        }
-        else {
-            // Is the source rank unique?
-            const sameRankCount = allOrigins.filter(p => rankOf(p) === fromRank).length;
-            if (sameRankCount === 1)
-                disambiguation = String(fromRank);
-
-            else // Step 3: full coordinate
-                disambiguation = `${fromFile}${fromRank}`;
-        }
-    }
-
-    return `${PIECE_LETTERS[piece.type]}${disambiguation}${capSym}${toFile}${toRank}${checkSym}`;
-}
-
-function findCapture(cells: Cell[], to: Position, enPassantTarget: Position | null, movingColor: Color,): Piece | null {
+function findCapture(cells: Cell[], to: Position, enPassantTarget: Position | null, movingColor: Color): Piece | null {
     const normal = cells.find(c => samePos(c, to))?.piece ?? null;
-
-    if (normal)
-        return normal;
-
-    if (!enPassantTarget || !samePos(to, enPassantTarget))
-        return null;
-
+    if (normal) return normal;
+    if (!enPassantTarget || !samePos(to, enPassantTarget)) return null;
     const epCapturedR = enPassantTarget.r + (movingColor === 'white' ? -1 : 1);
     return cells.find(c => c.q === enPassantTarget.q && c.r === epCapturedR)?.piece ?? null;
-}
-
-function addToHistory(prev: MoveRecord[], color: Color, notation: string): MoveRecord[] {
-    if (color === 'white') {
-        return [...prev, { moveNumber: prev.length + 1, white: notation }];
-    }
-    if (prev.length === 0) {
-        return [{ moveNumber: 1, black: notation }];
-    }
-    const last = prev[prev.length - 1];
-    if (last.white !== undefined && last.black === undefined) {
-        return [...prev.slice(0, -1), { ...last, black: notation }];
-    }
-    return [...prev, { moveNumber: prev.length + 1, black: notation }];
-}
-
-// ---------------------------------------------------------------------------
-// SAN parser — converts a move token back into from/to positions
-// ---------------------------------------------------------------------------
-
-const PIECE_FROM_SAN: Partial<Record<string, PieceType>> = {
-    K: 'king', Q: 'queen', R: 'rook', B: 'bishop', N: 'knight',
-};
-
-const PROMO_FROM_LETTER: Partial<Record<string, PromoPieceType>> = {
-    Q: 'queen', R: 'rook', B: 'bishop', N: 'knight',
-};
-
-function parseSanToken(
-    token: string,
-    cells: Cell[],
-    turn: Color,
-    enPassantTarget: Position | null,
-): { from: Position; to: Position; promotion?: PromoPieceType } | null {
-    let tok = token.replace(/[+#]$/, '');
-
-    // Extract promotion suffix "=X"
-    let promotion: PromoPieceType | undefined;
-    const promoMatch = tok.match(/=([QRBN])$/);
-    if (promoMatch) {
-        promotion = PROMO_FROM_LETTER[promoMatch[1]];
-        tok = tok.slice(0, -2);
-    }
-
-    // Strip capture symbol
-    const isCapture = tok.includes('x');
-    tok = tok.replace('x', '');
-
-    // Determine piece type
-    const firstChar = tok[0];
-    const isPawn = !(firstChar in PIECE_FROM_SAN);
-    const pieceType: PieceType = isPawn ? 'pawn' : (PIECE_FROM_SAN[firstChar] as PieceType);
-    if (!isPawn) tok = tok.slice(1);
-
-    // Destination is the trailing file-letter + rank-digits
-    const destMatch = tok.match(/([a-l])(\d+)$/);
-    if (!destMatch) return null;
-
-    const toFile = destMatch[1];
-    const toRank = parseInt(destMatch[2]);
-    const disambig = tok.slice(0, tok.length - destMatch[0].length);
-
-    const toQ = FILES.indexOf(toFile) - 5;
-    if (toQ < -5) return null;
-    const toR = toRank - toQ - 6;
-    const to: Position = { q: toQ, r: toR };
-
-    // Find all pieces of this type+color that can legally reach `to`
-    let candidates = cells.filter(c =>
-        c.piece?.type === pieceType &&
-        c.piece?.color === turn &&
-        getLegalMoves(cells, { q: c.q, r: c.r }, enPassantTarget)
-            .some(m => m.q === to.q && m.r === to.r),
-    );
-
-    if (candidates.length === 0) return null;
-
-    // Narrow by disambiguation string (may contain file and/or rank)
-    if (disambig) {
-        const fileMatch = /^([a-l])/.exec(disambig);
-        const rankMatch = /(\d+)$/.exec(disambig);
-        if (fileMatch) {
-            const dq = FILES.indexOf(fileMatch[1]) - 5;
-            candidates = candidates.filter(c => c.q === dq);
-        }
-        if (rankMatch) {
-            const dRank = parseInt(rankMatch[1]);
-            candidates = candidates.filter(c => c.q + c.r + 6 === dRank);
-        }
-    }
-
-    // For pawn captures, disambiguate by source file when no explicit disambig
-    if (isPawn && isCapture && !disambig && candidates.length > 1) {
-        // Caller is expected to include source file before 'x', but handle gracefully
-        return null;
-    }
-
-    if (candidates.length !== 1) return null;
-
-    return { from: { q: candidates[0].q, r: candidates[0].r }, to, promotion };
 }
 
 // ---------------------------------------------------------------------------
@@ -445,6 +268,11 @@ export function useGame() {
         setCanUndo(newSnapshots.length > 0);
     }, []);
 
+    const clearSelection = useCallback(() => {
+        setSelectedPos(null);
+        setValidMoves([]);
+    }, []);
+
     const confirmPromotion = useCallback((pieceType: PromoPieceType) => {
         if (!pendingPromotion) return;
         const { pos, baseNotation, color } = pendingPromotion;
@@ -478,6 +306,7 @@ export function useGame() {
         promotionPending: pendingPromotion?.pos ?? null,
         confirmPromotion,
         resetGame,
+        clearSelection,
         moveHistory,
         enPassantTarget,
         undoMove,

@@ -113,6 +113,11 @@
     border-bottom-color: #81b64c;
 }
 
+.panel-tab--secondary {
+    margin-left: auto;
+    color: #9a9998;
+}
+
 .panel-controls {
     padding: 12px;
     border-top: 1px solid var(--color-border-subtle);

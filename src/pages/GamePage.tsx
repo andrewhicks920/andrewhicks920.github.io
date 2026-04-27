@@ -41,6 +41,7 @@ export function GamePage({ mode, themeName, pieceSet, onThemeChange, onPieceSetC
         promotionPending,
         confirmPromotion,
         resetGame,
+        clearSelection,
         moveHistory,
         enPassantTarget,
         undoMove,
@@ -76,10 +77,10 @@ export function GamePage({ mode, themeName, pieceSet, onThemeChange, onPieceSetC
         handleCellClick(q, r);
     }, [mode, botReady, currentTurn, playerColor, handleCellClick]);
 
-    function handleBotStart(color: Color, diff: Difficulty) {
+    const handleBotStart = useCallback((color: Color, diff: Difficulty) => {
         resetGame();
         startBot(color, diff);
-    }
+    }, [resetGame, startBot]);
 
     let statusMessage = '';
     let statusVariant = '';
@@ -128,6 +129,7 @@ export function GamePage({ mode, themeName, pieceSet, onThemeChange, onPieceSetC
                         selectedPos={selectedPos}
                         validMoves={validMoves}
                         handleCellClick={wrappedHandleCellClick}
+                        clearSelection={clearSelection}
                         gameStatus={gameStatus}
                         promotionPending={promotionPending}
                         confirmPromotion={confirmPromotion}
@@ -170,12 +172,17 @@ export function GamePage({ mode, themeName, pieceSet, onThemeChange, onPieceSetC
                                 <span className="panel-tab panel-tab--active">
                                     {mode === 'bot' ? 'vs Computer' : mode === 'online' ? 'Online' : 'Local'}
                                 </span>
-                                <span className="panel-tab" style={{ marginLeft: 'auto' }}>Moves</span>
+                                <span className="panel-tab panel-tab--secondary">Moves</span>
                             </div>
                             <MoveHistory moves={moveHistory} />
                             <div className="panel-controls">
                                 {statusMessage && (
-                                    <div className={`status-message status-message--${statusVariant}`}>
+                                    <div
+                                        role="status"
+                                        aria-live={statusVariant === 'gameover' || statusVariant === 'check' ? 'assertive' : 'polite'}
+                                        aria-atomic="true"
+                                        className={`status-message status-message--${statusVariant}`}
+                                    >
                                         {statusMessage}
                                     </div>
                                 )}

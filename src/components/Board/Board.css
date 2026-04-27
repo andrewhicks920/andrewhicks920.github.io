@@ -16,6 +16,22 @@
     width: auto;
 }
 
+/*
+Suppress the browser's default focus ring on mouse clicks.
+
+:focus-visible only fires when focus arrived via keyboard,
+so keyboard users still get their system focus indicator.
+ */
+.board-svg:focus {
+    outline: none;
+}
+
+.board-svg:focus-visible {
+    outline: 2px solid #81b64c;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
 .file-label {
     font-size: 20px;
     fill: #888;

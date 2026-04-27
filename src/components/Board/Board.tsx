@@ -1,9 +1,9 @@
-import { toPixel, isValidCell, hexVertices } from '../../game/board.ts';
+import { toPixel, isValidCell, hexVertices, FILES } from '../../game/board.ts';
 import { HexTileFill } from '../Tile/Tile.tsx';
 import { pieceImageSrc } from '../Tile/Piece.tsx';
 import type { Cell, Color, Position } from '../../game/types.ts';
 import type { PromoPieceType } from '../../hooks/useGame.ts';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import './Board.css';
 
 const CELL_SIZE = 40;
@@ -83,12 +83,40 @@ function buildRankLabels(flipped: boolean) {
     });
 }
 
+// Arrow-key → hex direction mapping. Covers 4 of 6 axial directions; the
+// remaining two diagonals (northwest / southeast) are reachable by combining
+// adjacent key presses. A flat-top board maps naturally to these four.
+const KEY_DIRS: Partial<Record<string, [number, number]>> = {
+    ArrowRight: [ 1,  0],   // east
+    ArrowLeft:  [-1,  0],   // west
+    ArrowUp:    [ 0,  1],   // northeast
+    ArrowDown:  [ 0, -1],   // southwest
+};
+
+/** Returns a human-readable description of a cell for screen-reader announcements. */
+function describeCell(cells: Cell[], q: number, r: number, isSelected: boolean, isHighlight: boolean): string {
+    const file  = FILES[q + 5] ?? '?';
+    const rank  = q + r + 6;
+    const label = `${file}${rank}`;
+    const cell  = cells.find(c => c.q === q && c.r === r);
+
+    if (!cell?.piece) {
+        return isHighlight ? `${label} — valid move destination` : `${label} — empty`;
+    }
+
+    const color = cell.piece.color === 'white' ? 'White' : 'Black';
+    const type  = cell.piece.type;
+    const suffix = isSelected ? ', selected' : isHighlight ? ', valid move destination' : '';
+    return `${label} — ${color} ${type}${suffix}`;
+}
+
 interface BoardProps {
     cells: Cell[];
     currentTurn: Color;
     selectedPos: Position | null;
     validMoves: Position[];
     handleCellClick: (q: number, r: number) => void;
+    clearSelection: () => void;
     gameStatus: 'playing' | 'check' | 'checkmate' | 'stalemate';
     promotionPending: Position | null;
     confirmPromotion: (pieceType: PromoPieceType) => void;
@@ -102,6 +130,7 @@ export function Board({
     selectedPos,
     validMoves,
     handleCellClick,
+    clearSelection,
     gameStatus,
     promotionPending,
     confirmPromotion,
@@ -124,9 +153,70 @@ export function Board({
     const fileLabels = useMemo(() => buildFileLabels(flipped), [flipped]);
     const rankLabels = useMemo(() => buildRankLabels(flipped), [flipped]);
 
+    // -----------------------------------------------------------------------
+    // Keyboard navigation — virtual focus cursor on the SVG
+    // -----------------------------------------------------------------------
+
+    const [focusedPos, setFocusedPos] = useState<Position | null>(null);
+    const [announcement, setAnnouncement] = useState('');
+
+    function handleSvgFocus() {
+        // When focus enters, land on the selected piece, or centre of the board.
+        if (!focusedPos) {
+            const start = selectedPos ?? { q: 0, r: 0 };
+            setFocusedPos(start);
+            setAnnouncement(describeCell(cells, start.q, start.r, false, false));
+        }
+    }
+
+    function handleKeyDown(e: React.KeyboardEvent<SVGSVGElement>) {
+        if (promotionPending) return;
+
+        const dir = KEY_DIRS[e.key];
+        if (dir) {
+            e.preventDefault();
+            const cur = focusedPos ?? { q: 0, r: 0 };
+            const nq  = cur.q + dir[0];
+            const nr  = cur.r + dir[1];
+            if (isValidCell(nq, nr)) {
+                const next       = { q: nq, r: nr };
+                const isSelected = selectedPos?.q === nq && selectedPos?.r === nr;
+                const isHighlight = validMoveSet.has(`${nq},${nr}`);
+                setFocusedPos(next);
+                setAnnouncement(describeCell(cells, nq, nr, isSelected, isHighlight));
+            }
+            return;
+        }
+
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            const pos = focusedPos ?? { q: 0, r: 0 };
+            handleCellClick(pos.q, pos.r);
+            const isSelected  = selectedPos?.q === pos.q && selectedPos?.r === pos.r;
+            const isHighlight = validMoveSet.has(`${pos.q},${pos.r}`);
+            setAnnouncement(describeCell(cells, pos.q, pos.r, isSelected, isHighlight));
+            return;
+        }
+
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            clearSelection();
+            setAnnouncement('Selection cleared');
+        }
+    }
+
     return (
         <div className="board-wrapper">
+            {/* Screen-reader live region — updated on keyboard events */}
+            <div className="sr-only" aria-live="assertive" aria-atomic="true">
+                {announcement}
+            </div>
             <svg
+                role="application"
+                aria-label={`Hexagonal chess board, ${currentTurn} to move`}
+                tabIndex={0}
+                onFocus={handleSvgFocus}
+                onKeyDown={handleKeyDown}
                 viewBox={`${-VIEW_W / 2 - LABEL_PAD} ${-VIEW_H / 2 - LABEL_PAD} ${VIEW_W + 2 * LABEL_PAD} ${VIEW_H + 2 * LABEL_PAD}`}
                 className="board-svg"
                 width="100%"
@@ -144,6 +234,9 @@ export function Board({
                             !isGameOver &&
                             (!!cell.piece || isHighlight);
 
+                        const isFocused =
+                            focusedPos?.q === cell.q && focusedPos?.r === cell.r;
+
                         return (
                             <HexTileFill
                                 key={`fill-${key}`}
@@ -155,6 +248,7 @@ export function Board({
                                 isHighlight={isHighlight}
                                 isCheck={isCheck}
                                 isClickable={isClickable}
+                                isFocused={isFocused}
                                 pieceSet={pieceSet}
                                 flipped={flipped}
                                 handleCellClick={handleCellClick}
