@@ -176,6 +176,28 @@ export function posKey(pos: Position): string {
 }
 
 /**
+ * Generates a compact string that uniquely identifies a board position for
+ * threefold-repetition detection.
+ *
+ * Includes all piece placements (type + color), the side to move, and the
+ * en-passant target square. Cells are always produced in the same order
+ * (from {@link generateBoard}), so no sorting is required.
+ *
+ * @param cells - Current board state.
+ * @param turn  - Side whose turn it is to move.
+ * @param enPassantTarget - En-passant landing square, or `null`.
+ * @returns A compact string that changes whenever any of these inputs changes.
+ */
+export function boardPositionKey(cells: Cell[], turn: Color, enPassantTarget: Position | null): string {
+    let key = turn[0]; // 'w' or 'b'
+    for (const cell of cells) {
+        if (cell.piece) key += `${cell.q},${cell.r}${cell.piece.color[0]}${cell.piece.type[0]};`;
+    }
+    if (enPassantTarget) key += `e${enPassantTarget.q},${enPassantTarget.r}`;
+    return key;
+}
+
+/**
  * Builds an O(1) position-to-cell lookup map from a `Cell` array.
  *
  * @param cells - Board state to index.

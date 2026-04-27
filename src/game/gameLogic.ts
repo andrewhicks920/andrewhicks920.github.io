@@ -95,14 +95,18 @@ export function isInCheck(cells: Cell[], color: Color): boolean {
  * @param cells - Current board state.
  * @param pos - Position of the piece to move.
  * @param enPassantTarget - Landing square for a possible en-passant capture, or `null`.
+ * @param cellMap - Optional pre-built O(1) lookup map; built from `cells` when omitted.
+ *   Pass this from an outer call site (e.g. {@link hasAnyLegalMove}, the AI's move loop)
+ *   to avoid building a new map for every piece.
  * @returns All destinations the piece can legally move to this turn.
  */
-export function getLegalMoves(cells: Cell[], pos: Position, enPassantTarget: Position | null,): Position[] {
-    const cell = buildCellMap(cells).get(posKey(pos));
+export function getLegalMoves(cells: Cell[], pos: Position, enPassantTarget: Position | null, cellMap?: Map<string, Cell>): Position[] {
+    const map = cellMap ?? buildCellMap(cells);
+    const cell = map.get(posKey(pos));
     if (!cell?.piece) return [];
 
     const { color } = cell.piece;
-    return getPseudoLegalMoves(cells, pos, enPassantTarget).filter(to => {
+    return getPseudoLegalMoves(cells, pos, enPassantTarget, map).filter(to => {
         const after = applyMove(cells, pos, to, enPassantTarget, color);
         return !isInCheck(after, color);
     });
@@ -112,15 +116,19 @@ export function getLegalMoves(cells: Cell[], pos: Position, enPassantTarget: Pos
  * Returns `true` if `color` has at least one legal move available.
  * Used to distinguish checkmate (in check, no moves) from stalemate (not in check, no moves).
  *
+ * Builds a single `cellMap` shared across all per-piece {@link getLegalMoves} calls,
+ * saving one O(91) map construction per piece.
+ *
  * @param cells - Current board state.
  * @param color - The side to test for available moves.
  * @param enPassantTarget - En-passant landing square available this turn, or `null`.
  * @returns `true` if at least one legal move exists for `color`.
  */
-export function hasAnyLegalMove(cells: Cell[], color: Color, enPassantTarget: Position | null,): boolean {
+export function hasAnyLegalMove(cells: Cell[], color: Color, enPassantTarget: Position | null): boolean {
+    const cellMap = buildCellMap(cells);
     for (const cell of cells) {
         if (cell.piece?.color !== color) continue;
-        if (getLegalMoves(cells, { q: cell.q, r: cell.r }, enPassantTarget).length > 0)
+        if (getLegalMoves(cells, { q: cell.q, r: cell.r }, enPassantTarget, cellMap).length > 0)
             return true;
     }
     return false;

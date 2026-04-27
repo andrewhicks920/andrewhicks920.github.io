@@ -53,6 +53,12 @@ export interface Cell {
   piece: Piece | null;
 }
 
+/**
+ * All possible game status values, including draw by fifty-move rule or threefold repetition.
+ * `'draw'` is distinct from `'stalemate'` (Glinski's stalemate awards ¾ point, not ½).
+ */
+export type GameStatus = 'playing' | 'check' | 'checkmate' | 'stalemate' | 'draw';
+
 /** One entry in the move history list, pairing white and black half-moves by move number. */
 export interface MoveRecord {
   moveNumber: number;

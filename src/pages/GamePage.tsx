@@ -88,7 +88,7 @@ export function GamePage({ mode, themeName, pieceSet, onThemeChange, onPieceSetC
     } = useGame();
 
     const themeVars = themes[themeName] as Record<string, string>;
-    const isGameOver = gameStatus === 'checkmate' || gameStatus === 'stalemate';
+    const isGameOver = gameStatus === 'checkmate' || gameStatus === 'stalemate' || gameStatus === 'draw';
 
     const { botReady, playerColor, botColor, flipped, isThinking, startBot, resetBot } = useBot({
         mode,
@@ -129,6 +129,10 @@ export function GamePage({ mode, themeName, pieceSet, onThemeChange, onPieceSetC
     }
     else if (gameStatus === 'stalemate') {
         statusMessage = `Stalemate — ${currentTurn === 'white' ? 'Black' : 'White'} gets ¾ point`;
+        statusVariant = 'gameover';
+    }
+    else if (gameStatus === 'draw') {
+        statusMessage = 'Draw — fifty-move rule or threefold repetition';
         statusVariant = 'gameover';
     }
     else if (gameStatus === 'check') {

@@ -117,7 +117,7 @@ interface BoardProps {
     validMoves: Position[];
     handleCellClick: (q: number, r: number) => void;
     clearSelection: () => void;
-    gameStatus: 'playing' | 'check' | 'checkmate' | 'stalemate';
+    gameStatus: 'playing' | 'check' | 'checkmate' | 'stalemate' | 'draw';
     promotionPending: Position | null;
     confirmPromotion: (pieceType: PromoPieceType) => void;
     pieceSet: string;
@@ -148,15 +148,12 @@ export function Board({
         return king ? `${king.q},${king.r}` : null;
     }, [cells, currentTurn, gameStatus]);
 
-    const isGameOver = gameStatus === 'checkmate' || gameStatus === 'stalemate';
+    const isGameOver = gameStatus === 'checkmate' || gameStatus === 'stalemate' || gameStatus === 'draw';
 
     const fileLabels = useMemo(() => buildFileLabels(flipped), [flipped]);
     const rankLabels = useMemo(() => buildRankLabels(flipped), [flipped]);
 
-    // -----------------------------------------------------------------------
     // Keyboard navigation — virtual focus cursor on the SVG
-    // -----------------------------------------------------------------------
-
     const [focusedPos, setFocusedPos] = useState<Position | null>(null);
     const [announcement, setAnnouncement] = useState('');
 

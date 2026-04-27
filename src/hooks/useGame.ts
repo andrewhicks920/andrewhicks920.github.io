@@ -1,6 +1,6 @@
-import { useState, useCallback, useRef } from 'react';
-import { type Cell, type Color, type Piece, type Position, type MoveRecord, oppositeColor } from '../game/types';
-import { generateBoard, samePos, applyMove, computeEnPassantTarget, posKey, parseJan } from '../game/board';
+import { useReducer, useCallback, useRef, useLayoutEffect } from 'react';
+import { type Cell, type Color, type GameStatus, type Piece, type Position, type MoveRecord, oppositeColor } from '../game/types';
+import { generateBoard, samePos, applyMove, computeEnPassantTarget, posKey, boardPositionKey, parseJan } from '../game/board';
 import { getLegalMoves, getGameStatus, isPromotionSquare } from '../game/gameLogic';
 import {
     buildNotation,
@@ -13,6 +13,17 @@ import {
 // Re-export so consumers (useBot, Board) don't need to change their import sites.
 export type { PromoPieceType };
 
+// Constants
+/** Maximum entries kept in the undo stack. Older snapshots are discarded. */
+const MAX_UNDO_STACK = 50;
+
+/**
+ * Half-move clock threshold for the fifty-move draw rule.
+ * 100 half-moves = 50 full moves without a capture or pawn push.
+ */
+const FIFTY_MOVE_LIMIT = 100;
+
+// Types
 /** Tracks a pawn promotion that is waiting for the player to pick a piece. */
 interface PendingPromotion {
     /** Board square that the promoting pawn now occupies. */
@@ -27,38 +38,70 @@ interface PendingPromotion {
     color: Color;
 }
 
+/** Complete game state managed by {@link gameReducer}. */
+interface GameState {
+    cells: Cell[];
+    currentTurn: Color;
+    selectedPos: Position | null;
+    validMoves: Position[];
+    enPassantTarget: Position | null;
+    gameStatus: GameStatus;
+    capturedByWhite: Piece[];
+    capturedByBlack: Piece[];
+    pendingPromotion: PendingPromotion | null;
+    moveHistory: MoveRecord[];
+    /** `true` when there is at least one snapshot on the undo stack. */
+    canUndo: boolean;
+    /**
+     * Half-move clock for the fifty-move draw rule.
+     * Resets to 0 on any capture or pawn move; a draw is claimed at 100.
+     */
+    halfMoveClock: number;
+    /**
+     * Occurrence count keyed by {@link boardPositionKey}.
+     * A count of 3 triggers a draw by threefold repetition.
+     */
+    positionCounts: Map<string, number>;
+}
+
 /** Full board snapshot pushed before each move so undo can restore it. */
 interface GameSnapshot {
-    /** Complete array of board cells at the time of the snapshot. */
     cells: Cell[];
-    /** Whose turn it was before the move was applied. */
     currentTurn: Color;
-    /** En-passant target square active at the time of the snapshot. */
     enPassantTarget: Position | null;
-    /** Game status at the time of the snapshot. */
-    gameStatus: 'playing' | 'check' | 'checkmate' | 'stalemate';
-    /** Pieces captured by white up to and including this point. */
+    gameStatus: GameStatus;
     capturedByWhite: Piece[];
-    /** Pieces captured by black up to and including this point. */
     capturedByBlack: Piece[];
-    /** Move history list at the time of the snapshot. */
     moveHistory: MoveRecord[];
-    /** Any pending promotion state that was active at the time of the snapshot. */
     pendingPromotion: PendingPromotion | null;
+    halfMoveClock: number;
+    positionCounts: Map<string, number>;
 }
+
+type GameAction =
+    /** Execute a validated move from `from` to `to`. */
+    | { type: 'EXECUTE_MOVE'; from: Position; to: Position }
+    /** Resolve a pending pawn promotion with the chosen piece. */
+    | { type: 'CONFIRM_PROMOTION'; pieceType: PromoPieceType }
+    /** Select a piece at `pos` with its pre-computed legal move set. */
+    | { type: 'SELECT'; pos: Position; moves: Position[] }
+    /** Clear the current piece selection without making a move. */
+    | { type: 'CLEAR_SELECTION' }
+    /** Restore a previously saved snapshot (undo). */
+    | { type: 'RESTORE_SNAPSHOT'; snapshot: GameSnapshot; hasMore: boolean }
+    /** Reset to the standard Glinski starting position. */
+    | { type: 'RESET' }
+    /** Wholesale replace the game state (used by loadPosition / loadPgn). */
+    | { type: 'REPLACE'; newState: GameState };
+
+// ---------------------------------------------------------------------------
+// Helpers (module-level, pure — safe to call from the reducer and callbacks)
+// ---------------------------------------------------------------------------
 
 /**
  * Determines which piece (if any) is captured by a move to `to`.
- *
- * Handles both normal captures (a piece already occupying `to`) and
- * en-passant captures, where the captured pawn sits on an adjacent rank
- * rather than on `to` itself.
- *
- * @param cells - Current board cells.
- * @param to - Destination square of the moving piece.
- * @param enPassantTarget - Active en-passant target square, or `null`.
- * @param movingColor - Color of the piece that is moving.
- * @returns The captured {@link Piece}, or `null` if the move is not a capture.
+ * Handles normal captures and en-passant, where the captured pawn sits on a
+ * different rank than the landing square.
  */
 function findCapture(cells: Cell[], to: Position, enPassantTarget: Position | null, movingColor: Color): Piece | null {
     const normal = cells.find(c => samePos(c, to))?.piece ?? null;
@@ -68,255 +111,361 @@ function findCapture(cells: Cell[], to: Position, enPassantTarget: Position | nu
     return cells.find(c => c.q === enPassantTarget.q && c.r === epCapturedR)?.piece ?? null;
 }
 
+/** Shallow-copies `state` into a {@link GameSnapshot} (deep-copies positionCounts). */
+function captureSnapshot(state: GameState): GameSnapshot {
+    return {
+        cells:           state.cells,
+        currentTurn:     state.currentTurn,
+        enPassantTarget: state.enPassantTarget,
+        gameStatus:      state.gameStatus,
+        capturedByWhite: state.capturedByWhite,
+        capturedByBlack: state.capturedByBlack,
+        moveHistory:     state.moveHistory,
+        pendingPromotion: state.pendingPromotion,
+        halfMoveClock:   state.halfMoveClock,
+        positionCounts:  new Map(state.positionCounts), // copy so undo restores old counts
+    };
+}
+
+/** Computes the next game status, folding in draw conditions. */
+function computeNextStatus(
+    cells: Cell[],
+    nextTurn: Color,
+    enPassantTarget: Position | null,
+    halfMoveClock: number,
+    positionCounts: Map<string, number>,
+): GameStatus {
+    if (halfMoveClock >= FIFTY_MOVE_LIMIT) return 'draw';
+    const bpKey = boardPositionKey(cells, nextTurn, enPassantTarget);
+    if ((positionCounts.get(bpKey) ?? 0) >= 3) return 'draw';
+    return getGameStatus(cells, nextTurn, enPassantTarget);
+}
+
+/** Returns the standard Glinski starting {@link GameState}. */
+function initialState(): GameState {
+    const cells = generateBoard();
+    // Seed the starting position with count 1 so that two returns to it equal
+    // threefold repetition correctly (1 + 1 + 1 = 3).
+    const startKey = boardPositionKey(cells, 'white', null);
+    return {
+        cells,
+        currentTurn:     'white',
+        selectedPos:     null,
+        validMoves:      [],
+        enPassantTarget: null,
+        gameStatus:      'playing',
+        capturedByWhite: [],
+        capturedByBlack: [],
+        pendingPromotion: null,
+        moveHistory:     [],
+        canUndo:         false,
+        halfMoveClock:   0,
+        positionCounts:  new Map([[startKey, 1]]),
+    };
+}
+
 // ---------------------------------------------------------------------------
-// Hook
+// Reducer
 // ---------------------------------------------------------------------------
 
+function gameReducer(state: GameState, action: GameAction): GameState {
+    switch (action.type) {
+
+        case 'EXECUTE_MOVE': {
+            const { from, to } = action;
+            const movingPiece = state.cells.find(c => samePos(c, from))?.piece;
+            if (!movingPiece) return state;
+
+            const captured      = findCapture(state.cells, to, state.enPassantTarget, movingPiece.color);
+            const newEp         = computeEnPassantTarget(from, to, movingPiece);
+            const newCells      = applyMove(state.cells, from, to, state.enPassantTarget, movingPiece.color);
+
+            const newCapturedByWhite = movingPiece.color === 'white' && captured
+                ? [...state.capturedByWhite, captured] : state.capturedByWhite;
+            const newCapturedByBlack = movingPiece.color === 'black' && captured
+                ? [...state.capturedByBlack, captured] : state.capturedByBlack;
+
+            // Fifty-move clock: reset on capture or pawn move.
+            const newHalfMoveClock = (captured || movingPiece.type === 'pawn')
+                ? 0
+                : state.halfMoveClock + 1;
+
+            const isPromotion = movingPiece.type === 'pawn'
+                && isPromotionSquare(to.q, to.r, movingPiece.color);
+
+            if (isPromotion) {
+                // Defer notation and turn-advance until the player chooses a piece.
+                // Draw conditions are checked again in CONFIRM_PROMOTION.
+                const baseNotation = buildNotation(
+                    movingPiece, from, to, !!captured, '', state.cells, state.enPassantTarget,
+                );
+                return {
+                    ...state,
+                    cells:            newCells,
+                    enPassantTarget:  newEp,
+                    selectedPos:      null,
+                    validMoves:       [],
+                    capturedByWhite:  newCapturedByWhite,
+                    capturedByBlack:  newCapturedByBlack,
+                    halfMoveClock:    newHalfMoveClock,
+                    pendingPromotion: { pos: to, baseNotation, color: movingPiece.color },
+                };
+            }
+
+            const nextTurn = oppositeColor(state.currentTurn);
+
+            // Update threefold-repetition counts for the resulting position.
+            const bpKey = boardPositionKey(newCells, nextTurn, newEp);
+            const newPositionCounts = new Map(state.positionCounts);
+            newPositionCounts.set(bpKey, (newPositionCounts.get(bpKey) ?? 0) + 1);
+
+            const nextStatus = computeNextStatus(newCells, nextTurn, newEp, newHalfMoveClock, newPositionCounts);
+            const notation   = buildNotation(movingPiece, from, to, !!captured, nextStatus, state.cells, state.enPassantTarget);
+
+            return {
+                ...state,
+                cells:            newCells,
+                currentTurn:      nextTurn,
+                enPassantTarget:  newEp,
+                selectedPos:      null,
+                validMoves:       [],
+                capturedByWhite:  newCapturedByWhite,
+                capturedByBlack:  newCapturedByBlack,
+                pendingPromotion: null,
+                gameStatus:       nextStatus,
+                moveHistory:      addToHistory(state.moveHistory, movingPiece.color, notation),
+                halfMoveClock:    newHalfMoveClock,
+                positionCounts:   newPositionCounts,
+            };
+        }
+
+        case 'CONFIRM_PROMOTION': {
+            if (!state.pendingPromotion) return state;
+            const { pos, baseNotation, color } = state.pendingPromotion;
+            const { pieceType } = action;
+
+            const newCells = state.cells.map(cell =>
+                samePos(cell, pos)
+                    ? { ...cell, piece: { type: pieceType, color } }
+                    : cell,
+            );
+            const nextTurn = oppositeColor(color);
+
+            const bpKey = boardPositionKey(newCells, nextTurn, state.enPassantTarget);
+            const newPositionCounts = new Map(state.positionCounts);
+            newPositionCounts.set(bpKey, (newPositionCounts.get(bpKey) ?? 0) + 1);
+
+            const nextStatus = computeNextStatus(
+                newCells, nextTurn, state.enPassantTarget,
+                state.halfMoveClock, newPositionCounts,
+            );
+            const checkSym    = nextStatus === 'checkmate' ? '#' : nextStatus === 'check' ? '+' : '';
+            const fullNotation = `${baseNotation}=${PROMO_LETTERS[pieceType]}${checkSym}`;
+
+            return {
+                ...state,
+                cells:            newCells,
+                currentTurn:      nextTurn,
+                pendingPromotion: null,
+                gameStatus:       nextStatus,
+                moveHistory:      addToHistory(state.moveHistory, color, fullNotation),
+                positionCounts:   newPositionCounts,
+            };
+        }
+
+        case 'SELECT':
+            return { ...state, selectedPos: action.pos, validMoves: action.moves };
+
+        case 'CLEAR_SELECTION':
+            return { ...state, selectedPos: null, validMoves: [] };
+
+        case 'RESTORE_SNAPSHOT': {
+            const { snapshot, hasMore } = action;
+            return {
+                cells:            snapshot.cells,
+                currentTurn:      snapshot.currentTurn,
+                enPassantTarget:  snapshot.enPassantTarget,
+                gameStatus:       snapshot.gameStatus,
+                capturedByWhite:  snapshot.capturedByWhite,
+                capturedByBlack:  snapshot.capturedByBlack,
+                moveHistory:      snapshot.moveHistory,
+                pendingPromotion: snapshot.pendingPromotion,
+                halfMoveClock:    snapshot.halfMoveClock,
+                positionCounts:   snapshot.positionCounts,
+                selectedPos:      null,
+                validMoves:       [],
+                canUndo:          hasMore,
+            };
+        }
+
+        case 'RESET':
+            return initialState();
+
+        case 'REPLACE':
+            return action.newState;
+
+        default:
+            return state;
+    }
+}
+
+
+// Hook
 /**
  * Central state machine for a Glinski Hexagonal Chess game.
  *
- * Manages the full lifecycle of a game: board initialisation, legal-move
- * generation, move execution (including en-passant and promotion), game-status
- * evaluation, move-history recording, undo, and position loading from JAN /
- * PGN strings.
+ * Uses a single `useReducer` so every move is an atomic state transition —
+ * no intermediate renders with partially-updated state.
  *
- * The snapshot stack is stored in a ref rather than state so that pushing and
- * popping snapshots does not trigger unnecessary re-renders.
+ * A `stateRef` always mirrors the latest reducer state, letting stable
+ * `useCallback` wrappers (with empty dependency arrays) read fresh state
+ * without causing stale-closure bugs. Snapshot management is handled in the
+ * callback layer (not the reducer) because it involves a mutable ref.
  *
- * @returns An object containing the complete game state and all actions needed
- *   to drive the UI:
+ * Draw conditions tracked:
+ * - **Fifty-move rule** — 100 half-moves without capture or pawn move.
+ * - **Threefold repetition** — same position (pieces + side to move + ep) reached 3 times.
  *
- * | Property | Description |
- * |---       |---          |
- * | `cells` | Current array of board cells. |
- * | `currentTurn` | Color whose turn it is to move. |
- * | `selectedPos` | Currently selected piece position, or `null`. |
- * | `validMoves` | Legal destination squares for the selected piece. |
- * | `handleCellClick` | Click handler for human players — selects pieces and executes moves. |
- * | `executeBotMove` | Executes a move directly (used by the bot hook). |
- * | `gameStatus` | Current game status: `'playing'`, `'check'`, `'checkmate'`, or `'stalemate'`. |
- * | `capturedByWhite` | Pieces captured by the white player. |
- * | `capturedByBlack` | Pieces captured by the black player. |
- * | `promotionPending` | Square of a pawn awaiting promotion, or `null`. |
- * | `confirmPromotion` | Resolves a pending promotion with the chosen piece type. |
- * | `resetGame` | Restores the board to the standard Glinski starting position. |
- * | `clearSelection` | Deselects the currently selected piece without making a move. |
- * | `moveHistory` | Ordered list of move records in the game's notation format. |
- * | `enPassantTarget` | Square that can be captured en-passant this half-move, or `null`. |
- * | `undoMove` | Pops the most-recent snapshot and restores the previous game state. |
- * | `canUndo` | `true` when there is at least one move to undo. |
- * | `loadPosition` | Replaces the board with a position parsed from a JAN string. |
- * | `loadPgn` | Replays a full game from a PGN-style move token string. |
+ * The undo stack is capped at {@link MAX_UNDO_STACK} entries to bound memory use.
  */
 export function useGame() {
-    const [cells, setCells] = useState<Cell[]>(() => generateBoard());
-    const [currentTurn, setCurrentTurn] = useState<Color>('white');
-    const [selectedPos, setSelectedPos] = useState<Position | null>(null);
-    const [validMoves, setValidMoves] = useState<Position[]>([]);
-    const [enPassantTarget, setEnPassantTarget] = useState<Position | null>(null);
-    const [gameStatus, setGameStatus] = useState<'playing' | 'check' | 'checkmate' | 'stalemate'>('playing');
-    const [capturedByWhite, setCapturedByWhite] = useState<Piece[]>([]);
-    const [capturedByBlack, setCapturedByBlack] = useState<Piece[]>([]);
-    const [pendingPromotion, setPendingPromotion] = useState<PendingPromotion | null>(null);
-    const [moveHistory, setMoveHistory] = useState<MoveRecord[]>([]);
-    const [canUndo, setCanUndo] = useState(false);
+    const [state, dispatch] = useReducer(gameReducer, undefined, initialState);
 
-    // Snapshot stack stored in a ref — changes here don't need to trigger re-renders.
+    // Always-current mirror of state for use inside stable callbacks.
+    // Updated in useLayoutEffect (not inline during render) to satisfy react-hooks/refs.
+    // useLayoutEffect fires synchronously after DOM mutations and before any user
+    // interaction, so stateRef.current is always fresh when a callback runs.
+    const stateRef = useRef(state);
+    useLayoutEffect(() => {
+        stateRef.current = state;
+    });
+
+    // Snapshot stack stored in a ref — mutations here don't trigger re-renders.
     const snapshotsRef = useRef<GameSnapshot[]>([]);
 
+    // Internal helpers
+    /** Pushes a snapshot of `s` onto the undo stack, respecting the cap. */
+    function pushSnapshot(s: GameState): void {
+        const stack = snapshotsRef.current;
+        const next  = [...stack, captureSnapshot(s)];
+        snapshotsRef.current = next.length > MAX_UNDO_STACK
+            ? next.slice(-MAX_UNDO_STACK)
+            : next;
+    }
+
+    // Stable action callbacks
     /**
-     * Applies a validated move from `from` to `to`, updating all game state.
-     *
-     * Pushes the current state onto the undo stack before mutating anything.
-     * If the move results in a pawn reaching a promotion square, the turn is
-     * NOT advanced; instead a {@link PendingPromotion} is stored and the move
-     * history entry is deferred until {@link confirmPromotion} is called.
-     *
-     * @param from - Origin square of the piece being moved.
-     * @param to - Destination square.
+     * Executes a validated move (used by both human click handler and bot hook).
+     * Stable reference — no dependency on state; reads `stateRef.current` instead.
      */
     const executeMove = useCallback((from: Position, to: Position) => {
-        const movingPiece = cells.find(c => samePos(c, from))?.piece;
-        if (!movingPiece) return;
-
-        // Push snapshot of current state so undo can restore it
-        snapshotsRef.current.push({
-            cells,
-            currentTurn,
-            enPassantTarget,
-            gameStatus,
-            capturedByWhite,
-            capturedByBlack,
-            moveHistory,
-            pendingPromotion,
-        });
-        setCanUndo(true);
-
-        const newEnPassantTarget = computeEnPassantTarget(from, to, movingPiece);
-        const captured = findCapture(cells, to, enPassantTarget, movingPiece.color);
-
-        if (captured) {
-            if (movingPiece.color === 'white') setCapturedByWhite(prev => [...prev, captured]);
-            else setCapturedByBlack(prev => [...prev, captured]);
-        }
-
-        const newCells = applyMove(cells, from, to, enPassantTarget, movingPiece.color);
-        const nextTurn = oppositeColor(currentTurn);
-        const isPromotion = movingPiece.type === 'pawn' && isPromotionSquare(to.q, to.r, movingPiece.color);
-
-        setCells(newCells);
-        setEnPassantTarget(newEnPassantTarget);
-        setSelectedPos(null);
-        setValidMoves([]);
-
-        if (isPromotion) {
-            // Defer writing to move history until the piece is chosen — no '=?' sentinel needed.
-            const baseNotation = buildNotation(movingPiece, from, to, !!captured, '', cells, enPassantTarget);
-            setPendingPromotion({ pos: to, baseNotation, color: movingPiece.color });
-        } else {
-            const nextStatus = getGameStatus(newCells, nextTurn, newEnPassantTarget);
-            const notation = buildNotation(movingPiece, from, to, !!captured, nextStatus, cells, enPassantTarget);
-            setMoveHistory(prev => addToHistory(prev, movingPiece.color, notation));
-            setCurrentTurn(nextTurn);
-            setGameStatus(nextStatus);
-        }
-    }, [cells, currentTurn, enPassantTarget, gameStatus, capturedByWhite, capturedByBlack, moveHistory, pendingPromotion]);
+        pushSnapshot(stateRef.current);
+        dispatch({ type: 'EXECUTE_MOVE', from, to });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     /**
      * Handles a human player clicking on a board cell.
      *
-     * Selection/move logic (in priority order):
-     * 1. If a promotion is pending, the click is ignored.
-     * 2. If the game is over, the click is ignored.
-     * 3. If a piece is selected and the clicked square is a valid destination,
-     *    the move is executed.
-     * 4. If the clicked cell belongs to the current player, it becomes selected
-     *    and its legal moves are computed.
-     * 5. Otherwise the selection is cleared.
+     * Priority order:
+     * 1. Promotion pending → ignore.
+     * 2. Game over → ignore.
+     * 3. Clicked square is a valid destination for the selected piece → execute move.
+     * 4. Clicked cell belongs to the current player → select it.
+     * 5. Otherwise → clear selection.
      *
-     * @param q - Axial column coordinate of the clicked cell.
-     * @param r - Axial row coordinate of the clicked cell.
+     * Stable reference — reads `stateRef.current` for fresh state.
      */
     const handleCellClick = useCallback((q: number, r: number) => {
-        if (pendingPromotion) return;
-        if (gameStatus === 'checkmate' || gameStatus === 'stalemate') return;
+        const s = stateRef.current;
+        if (s.pendingPromotion) return;
+        if (s.gameStatus === 'checkmate' || s.gameStatus === 'stalemate' || s.gameStatus === 'draw') return;
 
         const clicked: Position = { q, r };
-        const clickedCell = cells.find(c => c.q === q && c.r === r);
+        const clickedCell = s.cells.find(c => c.q === q && c.r === r);
 
-        if (selectedPos && validMoves.some(m => samePos(m, clicked))) {
-            executeMove(selectedPos, clicked);
+        if (s.selectedPos && s.validMoves.some(m => samePos(m, clicked))) {
+            pushSnapshot(s);
+            dispatch({ type: 'EXECUTE_MOVE', from: s.selectedPos, to: clicked });
             return;
         }
 
-        if (clickedCell?.piece?.color === currentTurn) {
-            setSelectedPos(clicked);
-            setValidMoves(getLegalMoves(cells, clicked, enPassantTarget));
+        if (clickedCell?.piece?.color === s.currentTurn) {
+            const moves = getLegalMoves(s.cells, clicked, s.enPassantTarget);
+            dispatch({ type: 'SELECT', pos: clicked, moves });
             return;
         }
 
-        setSelectedPos(null);
-        setValidMoves([]);
-    }, [cells, currentTurn, selectedPos, validMoves, enPassantTarget, gameStatus, pendingPromotion, executeMove]);
-
-    /**
-     * Resets all game state to the standard Glinski starting position.
-     *
-     * Clears the undo stack, captured pieces, move history, and any pending
-     * promotion. White moves first.
-     */
-    const resetGame = useCallback(() => {
-        setCells(generateBoard());
-        setCurrentTurn('white');
-        setSelectedPos(null);
-        setValidMoves([]);
-        setEnPassantTarget(null);
-        setGameStatus('playing');
-        setCapturedByWhite([]);
-        setCapturedByBlack([]);
-        setPendingPromotion(null);
-        setMoveHistory([]);
-        snapshotsRef.current = [];
-        setCanUndo(false);
+        dispatch({ type: 'CLEAR_SELECTION' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     /**
-     * Pops the most-recent {@link GameSnapshot} from the undo stack and
-     * restores all game state to that point.
-     *
-     * Does nothing if the stack is empty. The selection is always cleared on
-     * undo regardless of the restored snapshot's selection state.
+     * Resets all game state to the standard Glinski starting position.
+     * Clears the undo stack, captured pieces, move history, and any pending promotion.
+     */
+    const resetGame = useCallback(() => {
+        snapshotsRef.current = [];
+        dispatch({ type: 'RESET' });
+    }, []);
+
+    /**
+     * Pops the most-recent snapshot from the undo stack and restores it.
+     * Does nothing if the stack is empty.
      */
     const undoMove = useCallback(() => {
         const stack = snapshotsRef.current;
         if (stack.length === 0) return;
-        const snap = stack[stack.length - 1];
+        const snap    = stack[stack.length - 1];
         snapshotsRef.current = stack.slice(0, -1);
+        dispatch({ type: 'RESTORE_SNAPSHOT', snapshot: snap, hasMore: stack.length > 1 });
+    }, []);
 
-        setCells(snap.cells);
-        setCurrentTurn(snap.currentTurn);
-        setEnPassantTarget(snap.enPassantTarget);
-        setGameStatus(snap.gameStatus);
-        setCapturedByWhite(snap.capturedByWhite);
-        setCapturedByBlack(snap.capturedByBlack);
-        setMoveHistory(snap.moveHistory);
-        setPendingPromotion(snap.pendingPromotion);
-        setSelectedPos(null);
-        setValidMoves([]);
-        setCanUndo(snapshotsRef.current.length > 0);
+    /** Deselects the currently selected piece without executing any move. */
+    const clearSelection = useCallback(() => {
+        dispatch({ type: 'CLEAR_SELECTION' });
     }, []);
 
     /**
-     * Loads a custom starting position from a JAN (JSON Algebraic Notation)
-     * string, replacing the current board state.
-     *
-     * The board geometry is regenerated from scratch and pieces are placed
-     * according to the parsed JAN data. All other state (turn, history, undo
-     * stack) is reset to defaults. Logs a warning and leaves the board
-     * unchanged if the JAN string is invalid.
-     *
-     * @param jan - A JAN-format string describing the piece placement.
+     * Resolves a pending pawn promotion by replacing the pawn with the chosen
+     * piece, then advancing the turn and evaluating game status (including draws).
+     * Does nothing if there is no promotion currently pending.
+     */
+    const confirmPromotion = useCallback((pieceType: PromoPieceType) => {
+        dispatch({ type: 'CONFIRM_PROMOTION', pieceType });
+    }, []);
+
+    /**
+     * Loads a custom starting position from a JAN string, replacing the current
+     * board state. Logs a warning and leaves the board unchanged on invalid input.
      */
     const loadPosition = useCallback((jan: string) => {
         try {
-            const pieces = parseJan(jan);
+            const pieces   = parseJan(jan);
             const newCells = generateBoard().map(cell => ({
                 ...cell,
                 piece: pieces.get(posKey(cell)) ?? null,
             }));
-            setCells(newCells);
-            setCurrentTurn('white');
-            setSelectedPos(null);
-            setValidMoves([]);
-            setEnPassantTarget(null);
-            setGameStatus('playing');
-            setCapturedByWhite([]);
-            setCapturedByBlack([]);
-            setPendingPromotion(null);
-            setMoveHistory([]);
+            const base  = initialState();
+            const startKey = boardPositionKey(newCells, 'white', null);
+            const newState: GameState = {
+                ...base,
+                cells:          newCells,
+                positionCounts: new Map([[startKey, 1]]),
+            };
             snapshotsRef.current = [];
-            setCanUndo(false);
+            dispatch({ type: 'REPLACE', newState });
         } catch (err) {
             console.warn('loadPosition: invalid JAN string', err);
         }
     }, []);
 
     /**
-     * Replays a game from a PGN-style move token string, restoring the board
-     * to the final position and populating the undo stack so every half-move
-     * can be stepped back through.
+     * Replays a game from a PGN-style move token string, restoring the board to the
+     * final position and populating the undo stack so every half-move can be stepped back.
      *
-     * The format mirrors the app's own export: move numbers are optional and
-     * are stripped before processing. Result tokens (`1-0`, `0-1`, etc.) are
-     * also stripped. Replay stops early on the first unparseable token or if
-     * the game reaches checkmate/stalemate.
-     *
-     * @example
-     * ```ts
-     * loadPgn('1. e4 e5 2. Nf3 Nc6');
-     * ```
-     *
-     * @param pgn - PGN-style string containing the move tokens to replay.
+     * Draw conditions (fifty-move rule, threefold repetition) are detected during
+     * replay and stop the replay at the first drawn position.
      */
     const loadPgn = useCallback((pgn: string) => {
         const tokens = pgn
@@ -326,39 +475,28 @@ export function useGame() {
             .split(/\s+/)
             .filter(t => t.length > 0);
 
-        let cCells = generateBoard();
-        let cTurn: Color = 'white';
-        let cEp: Position | null = null;
-        let cCapW: Piece[] = [];
-        let cCapB: Piece[] = [];
-        let cHistory: MoveRecord[] = [];
-        let cStatus: 'playing' | 'check' | 'checkmate' | 'stalemate' = 'playing';
+        let cState = initialState();
         const newSnapshots: GameSnapshot[] = [];
 
         for (const token of tokens) {
-            const parsed = parseSanToken(token, cCells, cTurn, cEp);
+            const parsed = parseSanToken(token, cState.cells, cState.currentTurn, cState.enPassantTarget);
             if (!parsed) break;
 
             const { from, to, promotion } = parsed;
-            const movingPiece = cCells.find(c => c.q === from.q && c.r === from.r)?.piece;
+            const movingPiece = cState.cells.find(c => c.q === from.q && c.r === from.r)?.piece;
             if (!movingPiece) break;
 
-            newSnapshots.push({
-                cells: cCells, currentTurn: cTurn, enPassantTarget: cEp,
-                gameStatus: cStatus, capturedByWhite: cCapW, capturedByBlack: cCapB,
-                moveHistory: cHistory, pendingPromotion: null,
-            });
+            newSnapshots.push(captureSnapshot(cState));
 
-            const captured = findCapture(cCells, to, cEp, movingPiece.color);
-            if (captured) {
-                if (movingPiece.color === 'white') cCapW = [...cCapW, captured];
-                else cCapB = [...cCapB, captured];
-            }
+            const captured = findCapture(cState.cells, to, cState.enPassantTarget, movingPiece.color);
+            const newCapturedByWhite = movingPiece.color === 'white' && captured
+                ? [...cState.capturedByWhite, captured] : cState.capturedByWhite;
+            const newCapturedByBlack = movingPiece.color === 'black' && captured
+                ? [...cState.capturedByBlack, captured] : cState.capturedByBlack;
 
-            const newEp = computeEnPassantTarget(from, to, movingPiece);
-            let newCells = applyMove(cCells, from, to, cEp, movingPiece.color);
+            const newEp  = computeEnPassantTarget(from, to, movingPiece);
+            let newCells = applyMove(cState.cells, from, to, cState.enPassantTarget, movingPiece.color);
 
-            // Apply promotion (explicit or auto-queen if piece reached promo square)
             if (movingPiece.type === 'pawn' && isPromotionSquare(to.q, to.r, movingPiece.color)) {
                 const promoType: PromoPieceType = promotion ?? 'queen';
                 newCells = newCells.map(c =>
@@ -368,86 +506,61 @@ export function useGame() {
                 );
             }
 
-            const nextTurn = oppositeColor(cTurn);
-            const nextStatus = getGameStatus(newCells, nextTurn, newEp);
-            cHistory = addToHistory(cHistory, movingPiece.color, token);
-            cCells = newCells;
-            cEp = newEp;
-            cTurn = nextTurn;
-            cStatus = nextStatus;
+            const nextTurn        = oppositeColor(cState.currentTurn);
+            const newHalfMoveClock = (captured || movingPiece.type === 'pawn') ? 0 : cState.halfMoveClock + 1;
 
-            if (cStatus === 'checkmate' || cStatus === 'stalemate') break;
+            const bpKey = boardPositionKey(newCells, nextTurn, newEp);
+            const newPositionCounts = new Map(cState.positionCounts);
+            newPositionCounts.set(bpKey, (newPositionCounts.get(bpKey) ?? 0) + 1);
+
+            const nextStatus = computeNextStatus(newCells, nextTurn, newEp, newHalfMoveClock, newPositionCounts);
+
+            cState = {
+                ...cState,
+                cells:            newCells,
+                currentTurn:      nextTurn,
+                enPassantTarget:  newEp,
+                gameStatus:       nextStatus,
+                capturedByWhite:  newCapturedByWhite,
+                capturedByBlack:  newCapturedByBlack,
+                moveHistory:      addToHistory(cState.moveHistory, movingPiece.color, token),
+                halfMoveClock:    newHalfMoveClock,
+                positionCounts:   newPositionCounts,
+                selectedPos:      null,
+                validMoves:       [],
+                pendingPromotion: null,
+                canUndo:          true,
+            };
+
+            if (nextStatus === 'checkmate' || nextStatus === 'stalemate' || nextStatus === 'draw') break;
         }
 
-        setCells(cCells);
-        setCurrentTurn(cTurn);
-        setEnPassantTarget(cEp);
-        setGameStatus(cStatus);
-        setCapturedByWhite(cCapW);
-        setCapturedByBlack(cCapB);
-        setMoveHistory(cHistory);
-        setPendingPromotion(null);
-        setSelectedPos(null);
-        setValidMoves([]);
-        snapshotsRef.current = newSnapshots;
-        setCanUndo(newSnapshots.length > 0);
+        const cappedSnapshots = newSnapshots.length > MAX_UNDO_STACK
+            ? newSnapshots.slice(-MAX_UNDO_STACK)
+            : newSnapshots;
+
+        snapshotsRef.current = cappedSnapshots;
+        dispatch({ type: 'REPLACE', newState: { ...cState, canUndo: cappedSnapshots.length > 0 } });
     }, []);
-
-    /** Deselects the currently selected piece without executing any move. */
-    const clearSelection = useCallback(() => {
-        setSelectedPos(null);
-        setValidMoves([]);
-    }, []);
-
-    /**
-     * Resolves a pending pawn promotion by replacing the promoting pawn with
-     * the chosen piece, then advancing the turn and evaluating game status.
-     *
-     * Also finalises the deferred move-history entry with the promotion
-     * suffix (e.g. `=Q`) and any check/checkmate symbol.
-     *
-     * Does nothing if there is no promotion currently pending.
-     *
-     * @param pieceType - The piece type the player (or bot) has chosen.
-     */
-    const confirmPromotion = useCallback((pieceType: PromoPieceType) => {
-        if (!pendingPromotion) return;
-        const { pos, baseNotation, color } = pendingPromotion;
-        const newCells = cells.map(cell =>
-            samePos(cell, pos)
-                ? { ...cell, piece: { type: pieceType, color } }
-                : cell,
-        );
-        const nextTurn = oppositeColor(color);
-        const nextStatus = getGameStatus(newCells, nextTurn, enPassantTarget);
-        const checkSym = nextStatus === 'checkmate' ? '#' : nextStatus === 'check' ? '+' : '';
-        const fullNotation = `${baseNotation}=${PROMO_LETTERS[pieceType]}${checkSym}`;
-
-        setMoveHistory(prev => addToHistory(prev, color, fullNotation));
-        setCells(newCells);
-        setCurrentTurn(nextTurn);
-        setPendingPromotion(null);
-        setGameStatus(nextStatus);
-    }, [pendingPromotion, cells, enPassantTarget]);
 
     return {
-        cells,
-        currentTurn,
-        selectedPos,
-        validMoves,
+        cells:            state.cells,
+        currentTurn:      state.currentTurn,
+        selectedPos:      state.selectedPos,
+        validMoves:       state.validMoves,
         handleCellClick,
-        executeBotMove: executeMove,
-        gameStatus,
-        capturedByWhite,
-        capturedByBlack,
-        promotionPending: pendingPromotion?.pos ?? null,
+        executeBotMove:   executeMove,
+        gameStatus:       state.gameStatus,
+        capturedByWhite:  state.capturedByWhite,
+        capturedByBlack:  state.capturedByBlack,
+        promotionPending: state.pendingPromotion?.pos ?? null,
         confirmPromotion,
         resetGame,
         clearSelection,
-        moveHistory,
-        enPassantTarget,
+        moveHistory:      state.moveHistory,
+        enPassantTarget:  state.enPassantTarget,
         undoMove,
-        canUndo,
+        canUndo:          state.canUndo,
         loadPosition,
         loadPgn,
     };

@@ -194,12 +194,14 @@ function isOnStartingRank(q: number, r: number, color: Color): boolean {
  * @param cells - Current board state.
  * @param pos - Position of the piece to move.
  * @param enPassantTarget - En-passant landing square available this turn, or `null`.
+ * @param cellMap - Optional pre-built O(1) lookup map; built from `cells` when omitted.
+ *   Pass this from an outer call site to avoid redundant map construction.
  * @returns All destinations reachable by piece movement rules, regardless of check.
  */
-export function getPseudoLegalMoves(cells: Cell[], pos: Position, enPassantTarget: Position | null = null): Position[] {
-    // Build once so every cellAt lookup below is O(1) instead of O(n).
-    const cellMap = buildCellMap(cells);
-    const cell = cellAt(cellMap, pos.q, pos.r);
+export function getPseudoLegalMoves(cells: Cell[], pos: Position, enPassantTarget: Position | null = null, cellMap?: Map<string, Cell>): Position[] {
+    // Reuse caller-supplied map, or build one. Either way each lookup is O(1).
+    const map = cellMap ?? buildCellMap(cells);
+    const cell = cellAt(map, pos.q, pos.r);
 
     if (!cell?.piece)
         return [];
@@ -207,12 +209,12 @@ export function getPseudoLegalMoves(cells: Cell[], pos: Position, enPassantTarge
     const { type, color } = cell.piece;
 
     switch (type) {
-        case 'rook':   return rookMoves(cellMap, pos, color);
-        case 'bishop': return bishopMoves(cellMap, pos, color);
-        case 'queen':  return queenMoves(cellMap, pos, color);
-        case 'king':   return kingMoves(cellMap, pos, color);
-        case 'knight': return knightMoves(cellMap, pos, color);
-        case 'pawn':   return pawnMoves(cellMap, pos, color, enPassantTarget);
+        case 'rook':   return rookMoves(map, pos, color);
+        case 'bishop': return bishopMoves(map, pos, color);
+        case 'queen':  return queenMoves(map, pos, color);
+        case 'king':   return kingMoves(map, pos, color);
+        case 'knight': return knightMoves(map, pos, color);
+        case 'pawn':   return pawnMoves(map, pos, color, enPassantTarget);
 
         default: throw new Error(`Unhandled piece type: ${type}`);
     }
