@@ -1,1 +1,3 @@
+ownerdomain=andrewhicks920.github.io/
+
 google.com, pub-3068561742404637, DIRECT, f08c47fec0942fa0
